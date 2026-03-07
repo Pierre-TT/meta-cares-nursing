@@ -1,0 +1,220 @@
+@import 'tailwindcss';
+@import '@fontsource/inter/300.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/poppins/500.css';
+@import '@fontsource/poppins/600.css';
+@import '@fontsource/poppins/700.css';
+
+@theme {
+  --color-mc-blue-50: #EFF8FF;
+  --color-mc-blue-100: #DFEFFF;
+  --color-mc-blue-200: #B8DFFF;
+  --color-mc-blue-300: #8ACBFF;
+  --color-mc-blue-400: #5CBEFF;
+  --color-mc-blue-500: #47B6FF;
+  --color-mc-blue-600: #2EA3F0;
+  --color-mc-blue-700: #1A8FD8;
+  --color-mc-blue-800: #1573AE;
+  --color-mc-blue-900: #0F5A8A;
+
+  --color-mc-green-50: #E8F7E4;
+  --color-mc-green-100: #D1EFCA;
+  --color-mc-green-200: #A8E09A;
+  --color-mc-green-300: #7FD06A;
+  --color-mc-green-400: #5EC745;
+  --color-mc-green-500: #4ABD33;
+  --color-mc-green-600: #3CA828;
+  --color-mc-green-700: #2E9320;
+  --color-mc-green-800: #247518;
+  --color-mc-green-900: #1A5812;
+
+  --color-mc-amber-50: #FFFBEB;
+  --color-mc-amber-500: #F59E0B;
+  --color-mc-amber-600: #D97706;
+
+  --color-mc-red-50: #FEF2F2;
+  --color-mc-red-500: #EF4444;
+  --color-mc-red-600: #DC2626;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Poppins', 'Inter', system-ui, sans-serif;
+}
+
+:root {
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F8FAFC;
+  --bg-tertiary: #F1F5F9;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --border-default: #E2E8F0;
+  --border-subtle: #F1F5F9;
+  --glass-bg: rgba(255,255,255,0.72);
+  --glass-border: rgba(255,255,255,0.2);
+  --glass-blur: 16px;
+  --gradient-brand: linear-gradient(135deg, #47B6FF 0%, #4ABD33 100%);
+  --gradient-brand-subtle: linear-gradient(135deg, #EFF8FF 0%, #E8F7E4 100%);
+}
+
+.dark {
+  --bg-primary: #0B0F1A;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1E293B;
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #64748B;
+  --border-default: #1E293B;
+  --border-subtle: #1E293B;
+  --glass-bg: rgba(15,23,42,0.75);
+  --glass-border: rgba(30,41,59,0.5);
+  --glass-blur: 20px;
+  --gradient-brand: linear-gradient(135deg, #5CBEFF 0%, #5EC745 100%);
+  --gradient-brand-subtle: linear-gradient(135deg, rgba(71,182,255,0.1) 0%, rgba(74,189,51,0.1) 100%);
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  padding-bottom: env(safe-area-inset-bottom);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  min-height: 100dvh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.text-gradient {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 999px; }
+
+@media (pointer: coarse) {
+  button, a, [role="button"] { min-height: 44px; min-width: 44px; }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-mc-blue-500);
+  outline-offset: 2px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-default) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Gradient shimmer overlay for CTA buttons */
+@keyframes gradient-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+  animation: gradient-shimmer 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Filter chip active transition */
+.chip-active {
+  transition: background 0.2s ease, color 0.15s ease, transform 0.15s ease;
+}
+.chip-active:active {
+  transform: scale(0.95);
+}
+
+/* Gradient mesh background for hero headers */
+@keyframes mesh-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.mesh-gradient {
+  background: linear-gradient(135deg, #47B6FF 0%, #2EA3F0 25%, #4ABD33 50%, #3CA828 75%, #47B6FF 100%);
+  background-size: 300% 300%;
+  animation: mesh-shift 8s ease-in-out infinite;
+}
+.dark .mesh-gradient {
+  background: linear-gradient(135deg, #1A8FD8 0%, #0F5A8A 25%, #2E9320 50%, #1A5812 75%, #1A8FD8 100%);
+  background-size: 300% 300%;
+  animation: mesh-shift 8s ease-in-out infinite;
+}
+
+/* Glow ring for emphasis */
+.glow-ring {
+  box-shadow: 0 0 0 3px rgba(71, 182, 255, 0.2), 0 0 20px rgba(71, 182, 255, 0.15);
+}
+.glow-ring-green {
+  box-shadow: 0 0 0 3px rgba(74, 189, 51, 0.2), 0 0 20px rgba(74, 189, 51, 0.15);
+}
+
+/* Glass variant with stronger blur + tint */
+.glass-strong {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.dark .glass-strong {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Gradient text icon fill */
+.icon-gradient {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Pulse badge animation */
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+.badge-pulse {
+  animation: badge-pulse 2s ease-in-out infinite;
+}
