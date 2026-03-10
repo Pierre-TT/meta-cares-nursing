@@ -1,4 +1,5 @@
 import type { Json, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types';
+import { queueDataAccessLog } from '@/lib/dataAccess';
 import { supabase } from '@/lib/supabase';
 
 type PatientSummaryRow = Pick<
@@ -244,6 +245,29 @@ function mapEAgreementRequest(row: EAgreementRequestSelectRow): EAgreementReques
   };
 }
 
+function queueEAgreementRegistryReadLog(
+  requests: EAgreementRequest[],
+  filters: EAgreementListFilters,
+) {
+  queueDataAccessLog({
+    tableName: 'eagreement_requests',
+    action: 'read',
+    patientId: filters.patientId ?? null,
+    resourceLabel: filters.patientId
+      ? 'Consultation eAgreement patient'
+      : 'Consultation du registre eAgreement',
+    containsPii: true,
+    severity: requests.length > 0 ? 'medium' : 'low',
+    metadata: {
+      patientScoped: Boolean(filters.patientId),
+      requestCount: requests.length,
+      patientCount: new Set(requests.map((request) => request.patientId)).size,
+      statusFilters: filters.statuses ?? [],
+      limit: filters.limit ?? null,
+    },
+  });
+}
+
 function toPersistedStatus(status?: string | null): EAgreementRequestStatus {
   switch (status) {
     case 'draft':
@@ -345,8 +369,34 @@ export async function getPatientConsentSnapshot(patientId: string) {
   }
 
   if (!data) {
+    queueDataAccessLog({
+      tableName: 'patient_consents',
+      action: 'read',
+      patientId,
+      resourceLabel: 'Consultation snapshot consentement eAgreement',
+      containsPii: true,
+      severity: 'medium',
+      metadata: {
+        found: false,
+      },
+    });
     return null;
   }
+
+  queueDataAccessLog({
+    tableName: 'patient_consents',
+    action: 'read',
+    patientId,
+    resourceLabel: 'Consultation snapshot consentement eAgreement',
+    containsPii: true,
+    severity: 'medium',
+    metadata: {
+      found: true,
+      consentStatus: data.consent_status,
+      therapeuticLinkStatus: data.therapeutic_link_status,
+      source: data.source,
+    },
+  });
 
   return {
     patientId: data.patient_id,
@@ -387,7 +437,10 @@ export async function listEAgreementRequests(filters: EAgreementListFilters = {}
     throw error;
   }
 
-  return ((data ?? []) as EAgreementRequestSelectRow[]).map(mapEAgreementRequest);
+  const requests = ((data ?? []) as EAgreementRequestSelectRow[]).map(mapEAgreementRequest);
+  queueEAgreementRegistryReadLog(requests, filters);
+
+  return requests;
 }
 
 export async function createEAgreementRequest(input: CreateEAgreementRequestInput) {
@@ -427,7 +480,24 @@ export async function createEAgreementRequest(input: CreateEAgreementRequestInpu
     throw error;
   }
 
-  return mapEAgreementRequest(data as EAgreementRequestSelectRow);
+  const request = mapEAgreementRequest(data as EAgreementRequestSelectRow);
+
+  queueDataAccessLog({
+    tableName: 'eagreement_requests',
+    action: 'insert',
+    recordId: request.id,
+    patientId: request.patientId,
+    resourceLabel: `Création demande eAgreement · ${request.patient.fullName || 'Patient non résolu'}`,
+    containsPii: true,
+    severity: 'medium',
+    metadata: {
+      status: request.status,
+      careType: request.careType,
+      nomenclature: request.nomenclature,
+    },
+  });
+
+  return request;
 }
 
 export async function updateEAgreementRequest({ requestId, patch }: UpdateEAgreementRequestInput) {
@@ -465,6 +535,22 @@ export async function updateEAgreementRequest({ requestId, patch }: UpdateEAgree
 
     throw error;
   }
+  const request = mapEAgreementRequest(data as EAgreementRequestSelectRow);
 
-  return mapEAgreementRequest(data as EAgreementRequestSelectRow);
+  queueDataAccessLog({
+    tableName: 'eagreement_requests',
+    action: 'update',
+    recordId: request.id,
+    patientId: request.patientId,
+    resourceLabel: `Mise à jour demande eAgreement · ${request.patient.fullName || 'Patient non résolu'}`,
+    containsPii: true,
+    severity: 'medium',
+    metadata: {
+      status: request.status,
+      careType: request.careType,
+      nomenclature: request.nomenclature,
+    },
+  });
+
+  return request;
 }

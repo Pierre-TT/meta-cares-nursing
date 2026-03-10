@@ -1,31 +1,108 @@
-import { Shield, CheckCircle, AlertTriangle, Clock3, FileText, Lock, Eye, Download, Users, Siren } from 'lucide-react';
-import { Badge, Card, CardHeader, CardTitle, Button, AnimatedPage, GradientHeader } from '@/design-system';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  AlertTriangle,
+  CheckCircle,
+  Clock3,
+  Download,
+  Eye,
+  FileText,
+  Lock,
+  Shield,
+  Siren,
+  Users,
+} from 'lucide-react';
+import {
+  AnimatedPage,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  CardTitle,
+  GradientHeader,
+} from '@/design-system';
 import { useAdminPlatformData } from '@/hooks/usePlatformData';
 
-const typeLabels = { access: 'Droit d’accès', rectification: 'Rectification', portability: 'Portabilité' };
+const typeLabels = { access: 'Droit d acces', rectification: 'Rectification', portability: 'Portabilite' };
 const typeIcons = { access: Eye, rectification: FileText, portability: Download };
 
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function downloadJsonFile(filename: string, contents: string) {
+  if (typeof window === 'undefined' || typeof document === 'undefined' || typeof Blob === 'undefined') {
+    return false;
+  }
+
+  const objectUrl = window.URL?.createObjectURL?.(new Blob([contents], { type: 'application/json;charset=utf-8' }));
+  if (!objectUrl) {
+    return false;
+  }
+
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(objectUrl);
+  return true;
+}
+
 export function RGPDPage() {
+  const navigate = useNavigate();
+  const [feedback, setFeedback] = useState<string | null>(null);
   const { data } = useAdminPlatformData();
   const complianceChecks = data.rgpd.complianceChecks;
   const recentRequests = data.rgpd.requests;
   const okCount = complianceChecks.filter((c) => c.status === 'ok').length;
   const score = data.summary.complianceScore;
   const pendingDsar = data.summary.pendingDsars;
-  const preIncidentCount = data.rgpd.governanceHighlights.filter((item) => item.title.toLowerCase().includes('pré-incident')).length;
+  const preIncidentCount = data.rgpd.governanceHighlights.filter((item) =>
+    normalizeText(item.title).includes('pre-incident')
+  ).length;
+
+  function handleOpenAudit() {
+    setFeedback('Revue des acces redirigee vers audit.');
+    navigate('/admin/audit');
+  }
+
+  function handleExportRgpd() {
+    const exported = {
+      exportedAt: new Date().toISOString(),
+      score,
+      pendingDsar,
+      complianceChecks,
+      requests: recentRequests,
+      governanceHighlights: data.rgpd.governanceHighlights,
+      registerCompletion: data.rgpd.registerCompletion,
+      requestsHandled: data.rgpd.requestsHandled,
+      dpiaToReview: data.rgpd.dpiaToReview,
+      nextTrainingInDays: data.rgpd.nextTrainingInDays,
+    };
+
+    const success = downloadJsonFile('admin-rgpd-export.json', JSON.stringify(exported, null, 2));
+    setFeedback(success ? 'Export RGPD prepare.' : 'Export indisponible dans cet environnement.');
+  }
 
   return (
     <AnimatedPage className="px-4 py-6 lg:px-8 max-w-5xl mx-auto space-y-4">
       <GradientHeader
         icon={<Shield className="h-5 w-5" />}
-        title="Conformité RGPD"
+        title="Conformite RGPD"
         subtitle="DSAR, registre, incidents et gouvernance"
         badge={<Badge variant={score >= 90 ? 'green' : 'amber'}>{score}%</Badge>}
       >
         <div className="flex items-center justify-around mt-1">
           <div className="text-center">
-            <p className="text-lg font-bold text-white">{okCount}/{complianceChecks.length}</p>
-            <p className="text-[10px] text-white/60">Contrôles OK</p>
+            <p className="text-lg font-bold text-white">
+              {okCount}/{complianceChecks.length}
+            </p>
+            <p className="text-[10px] text-white/60">Controles OK</p>
           </div>
           <div className="h-6 w-px bg-white/20" />
           <div className="text-center">
@@ -35,10 +112,17 @@ export function RGPDPage() {
           <div className="h-6 w-px bg-white/20" />
           <div className="text-center">
             <p className="text-lg font-bold text-white">{preIncidentCount}</p>
-            <p className="text-[10px] text-white/60">Pré-incidents</p>
+            <p className="text-[10px] text-white/60">Pre-incidents</p>
           </div>
         </div>
       </GradientHeader>
+
+      {feedback && (
+        <div role="status" className="flex items-center gap-2 p-3 rounded-xl bg-mc-blue-500/10 border border-mc-blue-500/20">
+          <CheckCircle className="h-4 w-4 text-mc-blue-500" />
+          <span className="text-sm font-medium">{feedback}</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="text-center">
@@ -47,11 +131,11 @@ export function RGPDPage() {
         </Card>
         <Card className="text-center">
           <p className="text-2xl font-bold text-mc-green-500">{data.rgpd.requestsHandled}</p>
-          <p className="text-[10px] text-[var(--text-muted)]">Demandes traitées</p>
+          <p className="text-[10px] text-[var(--text-muted)]">Demandes traitees</p>
         </Card>
         <Card className="text-center">
           <p className="text-2xl font-bold text-mc-amber-500">{data.rgpd.dpiaToReview}</p>
-          <p className="text-[10px] text-[var(--text-muted)]">AIPD à revoir</p>
+          <p className="text-[10px] text-[var(--text-muted)]">AIPD a revoir</p>
         </Card>
         <Card className="text-center">
           <p className="text-2xl font-bold text-mc-red-500">{data.rgpd.nextTrainingInDays} j</p>
@@ -72,12 +156,17 @@ export function RGPDPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Contrôles de conformité</CardTitle>
-          <Badge variant={score >= 90 ? 'green' : 'amber'}>{okCount}/{complianceChecks.length}</Badge>
+          <CardTitle>Controles de conformite</CardTitle>
+          <Badge variant={score >= 90 ? 'green' : 'amber'}>
+            {okCount}/{complianceChecks.length}
+          </Badge>
         </CardHeader>
         <div className="space-y-3">
           {complianceChecks.map((check) => (
-            <div key={check.id} className="flex items-start gap-3 py-1.5 border-b border-[var(--border-subtle)] last:border-0">
+            <div
+              key={check.id}
+              className="flex items-start gap-3 py-1.5 border-b border-[var(--border-subtle)] last:border-0"
+            >
               {check.status === 'ok' ? (
                 <CheckCircle className="h-5 w-5 text-mc-green-500 shrink-0 mt-0.5" />
               ) : (
@@ -96,22 +185,27 @@ export function RGPDPage() {
       <div className="grid lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Demandes des personnes concernées</CardTitle>
+            <CardTitle>Demandes des personnes concernees</CardTitle>
             <Badge variant="blue">Art.15-20</Badge>
           </CardHeader>
           <div className="space-y-2">
             {recentRequests.map((req) => {
               const Icon = typeIcons[req.type];
               return (
-                <div key={req.id} className="flex items-center gap-3 py-1.5 border-b border-[var(--border-subtle)] last:border-0">
+                <div
+                  key={req.id}
+                  className="flex items-center gap-3 py-1.5 border-b border-[var(--border-subtle)] last:border-0"
+                >
                   <Icon className="h-4 w-4 text-mc-blue-500 shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">{typeLabels[req.type]}</p>
-                    <p className="text-xs text-[var(--text-muted)]">{req.patient} · reçu le {req.date}</p>
-                    <p className="text-[10px] text-[var(--text-muted)]">Échéance {req.deadline}</p>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      {req.patient} · recu le {req.date}
+                    </p>
+                    <p className="text-[10px] text-[var(--text-muted)]">Echeance {req.deadline}</p>
                   </div>
                   <Badge variant={req.status === 'completed' ? 'green' : 'amber'}>
-                    {req.status === 'completed' ? 'Traité' : 'En cours'}
+                    {req.status === 'completed' ? 'Traite' : 'En cours'}
                   </Badge>
                 </div>
               );
@@ -130,7 +224,15 @@ export function RGPDPage() {
               return (
                 <div key={item.title} className="p-3 rounded-xl bg-[var(--bg-secondary)]">
                   <div className="flex items-center gap-2 mb-1">
-                    <Icon className={`h-4 w-4 ${item.tone === 'blue' ? 'text-mc-blue-500' : item.tone === 'green' ? 'text-mc-green-500' : 'text-mc-amber-500'}`} />
+                    <Icon
+                      className={`h-4 w-4 ${
+                        item.tone === 'blue'
+                          ? 'text-mc-blue-500'
+                          : item.tone === 'green'
+                            ? 'text-mc-green-500'
+                            : 'text-mc-amber-500'
+                      }`}
+                    />
                     <p className="text-sm font-medium">{item.title}</p>
                   </div>
                   <p className="text-xs text-[var(--text-muted)]">{item.detail}</p>
@@ -142,11 +244,11 @@ export function RGPDPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Button variant="outline" className="flex-col h-auto py-4">
+        <Button variant="outline" className="flex-col h-auto py-4" onClick={handleOpenAudit}>
           <Lock className="h-5 w-5 mb-1" />
-          <span className="text-xs">Audit accès</span>
+          <span className="text-xs">Audit acces</span>
         </Button>
-        <Button variant="outline" className="flex-col h-auto py-4">
+        <Button variant="outline" className="flex-col h-auto py-4" onClick={handleExportRgpd}>
           <Download className="h-5 w-5 mb-1" />
           <span className="text-xs">Export RGPD</span>
         </Button>

@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import { Shield, Search, Eye, Edit3, Trash2, LogIn, FileText, AlertTriangle, HardDrive } from 'lucide-react';
+import { Shield, Search, Eye, Edit3, Trash2, LogIn, FileText, AlertTriangle, HardDrive, RefreshCw } from 'lucide-react';
 import { Badge, Card, Input, AnimatedPage, GradientHeader, Tabs } from '@/design-system';
+import { useAdminEHealthCompliance } from '@/hooks/useEHealthCompliance';
 import { useAdminPlatformData } from '@/hooks/usePlatformData';
 
-const actionIcons = { VIEW: Eye, EDIT: Edit3, EXPORT: FileText, LOGIN: LogIn, DELETE: Trash2, BACKUP: HardDrive };
-const actionColors = { VIEW: 'blue', EDIT: 'amber', EXPORT: 'green', LOGIN: 'outline', DELETE: 'red', BACKUP: 'green' } as const;
+const actionIcons = { VIEW: Eye, EDIT: Edit3, EXPORT: FileText, LOGIN: LogIn, DELETE: Trash2, BACKUP: HardDrive, SYNC: RefreshCw };
+const actionColors = { VIEW: 'blue', EDIT: 'amber', EXPORT: 'green', LOGIN: 'outline', DELETE: 'red', BACKUP: 'green', SYNC: 'blue' } as const;
 
 export function AuditPage() {
   const { data } = useAdminPlatformData();
+  const { data: compliance } = useAdminEHealthCompliance();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all');
-  const auditLog = data.audit.auditLog;
+  const audit = compliance.audit.auditLog.length > 0 ? compliance.audit : data.audit;
+  const auditLog = audit.auditLog;
   const tabs = [
     { id: 'all', label: 'Tout', count: auditLog.length },
     { id: 'high', label: 'Critique', count: auditLog.filter((l) => l.severity === 'high').length },
@@ -56,7 +59,7 @@ export function AuditPage() {
           <AlertTriangle className="h-4 w-4 text-mc-red-500 mt-0.5" />
           <div>
             <p className="text-sm font-semibold">Suspicious activity detector</p>
-            <p className="text-xs text-[var(--text-muted)]">{data.audit.suspiciousActivityNote}</p>
+            <p className="text-xs text-[var(--text-muted)]">{audit.suspiciousActivityNote}</p>
           </div>
         </div>
       </Card>

@@ -7,6 +7,7 @@ import {
   markBelraiSnapshotReady,
   resetBelraiSnapshot,
   saveBelraiSnapshot,
+  syncBelraiOfflineDrafts,
 } from '@/lib/belraiSupabase';
 
 function getBelraiQueryKey(patientId: string) {
@@ -45,12 +46,23 @@ export function useBelraiTwin(patientId?: string) {
     },
   });
 
+  const syncOfflineDraftsMutation = useMutation({
+    mutationFn: async () => syncBelraiOfflineDrafts(patientId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: getBelraiQueryKey(resolvedPatientId) });
+    },
+  });
+
   return {
     ...query,
     saveDraft: saveDraftMutation.mutateAsync,
     markReadyForSync: markReadyMutation.mutateAsync,
     resetDraft: resetDraftMutation.mutateAsync,
+    syncOfflineDrafts: syncOfflineDraftsMutation.mutateAsync,
     isSaving:
-      saveDraftMutation.isPending || markReadyMutation.isPending || resetDraftMutation.isPending,
+      saveDraftMutation.isPending ||
+      markReadyMutation.isPending ||
+      resetDraftMutation.isPending ||
+      syncOfflineDraftsMutation.isPending,
   } as const;
 }

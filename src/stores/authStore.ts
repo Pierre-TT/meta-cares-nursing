@@ -5,6 +5,7 @@ import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 
 export type UserRole = Database['public']['Enums']['user_role'];
+export type ProfessionalStatus = Database['public']['Enums']['professional_status'];
 
 export interface User {
   id: string;
@@ -12,8 +13,16 @@ export interface User {
   role: UserRole;
   firstName: string;
   lastName: string;
+  phone?: string;
   avatarUrl?: string;
   inamiNumber?: string;
+  professionalStatus?: ProfessionalStatus;
+  bceNumber?: string;
+  companyName?: string;
+  professionalStreet?: string;
+  professionalHouseNumber?: string;
+  professionalPostalCode?: string;
+  professionalCity?: string;
 }
 
 interface SyncSessionOptions {
@@ -33,7 +42,21 @@ interface AuthState {
 
 type ProfileRow = Pick<
   Tables<'profiles'>,
-  'id' | 'email' | 'role' | 'first_name' | 'last_name' | 'avatar_url' | 'inami_number'
+  | 'id'
+  | 'email'
+  | 'role'
+  | 'first_name'
+  | 'last_name'
+  | 'phone'
+  | 'avatar_url'
+  | 'inami_number'
+  | 'professional_status'
+  | 'bce_number'
+  | 'company_name'
+  | 'professional_street'
+  | 'professional_house_number'
+  | 'professional_postal_code'
+  | 'professional_city'
 >;
 
 export const roleHomeRoutes: Record<UserRole, string> = {
@@ -42,6 +65,14 @@ export const roleHomeRoutes: Record<UserRole, string> = {
   patient: '/patient',
   admin: '/admin',
   billing_office: '/billing',
+};
+
+export const roleProfileRoutes: Record<UserRole, string> = {
+  nurse: '/nurse/profile',
+  coordinator: '/coordinator/profile',
+  patient: '/patient/profile',
+  admin: '/admin/profile',
+  billing_office: '/billing/profile',
 };
 
 let initializationPromise: Promise<void> | null = null;
@@ -65,6 +96,19 @@ function getMetadataString(metadata: SupabaseUser['user_metadata'], key: string)
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+function getMetadataProfessionalStatus(metadata: SupabaseUser['user_metadata']): ProfessionalStatus | undefined {
+  const value = getMetadataString(metadata, 'professional_status');
+
+  switch (value) {
+    case 'independant':
+    case 'independant_complementaire':
+    case 'salarie':
+      return value;
+    default:
+      return undefined;
+  }
+}
+
 function buildFallbackName(authUser: SupabaseUser) {
   const fullName = getMetadataString(authUser.user_metadata, 'full_name');
   const firstName =
@@ -84,8 +128,16 @@ function mapProfileToUser(profile: ProfileRow): User {
     role: normalizeRole(profile.role),
     firstName: profile.first_name,
     lastName: profile.last_name,
+    phone: profile.phone ?? undefined,
     avatarUrl: profile.avatar_url ?? undefined,
     inamiNumber: profile.inami_number ?? undefined,
+    professionalStatus: profile.professional_status ?? undefined,
+    bceNumber: profile.bce_number ?? undefined,
+    companyName: profile.company_name ?? undefined,
+    professionalStreet: profile.professional_street ?? undefined,
+    professionalHouseNumber: profile.professional_house_number ?? undefined,
+    professionalPostalCode: profile.professional_postal_code ?? undefined,
+    professionalCity: profile.professional_city ?? undefined,
   };
 }
 
@@ -98,8 +150,16 @@ function mapAuthUserToFallback(authUser: SupabaseUser): User {
     role: normalizeRole(getMetadataString(authUser.user_metadata, 'role')),
     firstName,
     lastName,
+    phone: getMetadataString(authUser.user_metadata, 'phone'),
     avatarUrl: getMetadataString(authUser.user_metadata, 'avatar_url'),
     inamiNumber: getMetadataString(authUser.user_metadata, 'inami_number'),
+    professionalStatus: getMetadataProfessionalStatus(authUser.user_metadata),
+    bceNumber: getMetadataString(authUser.user_metadata, 'bce_number'),
+    companyName: getMetadataString(authUser.user_metadata, 'company_name'),
+    professionalStreet: getMetadataString(authUser.user_metadata, 'professional_street'),
+    professionalHouseNumber: getMetadataString(authUser.user_metadata, 'professional_house_number'),
+    professionalPostalCode: getMetadataString(authUser.user_metadata, 'professional_postal_code'),
+    professionalCity: getMetadataString(authUser.user_metadata, 'professional_city'),
   };
 }
 
@@ -110,7 +170,9 @@ async function loadUserFromSession(session: Session | null): Promise<User | null
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, role, first_name, last_name, avatar_url, inami_number')
+    .select(
+      'id, email, role, first_name, last_name, phone, avatar_url, inami_number, professional_status, bce_number, company_name, professional_street, professional_house_number, professional_postal_code, professional_city'
+    )
     .eq('id', session.user.id)
     .maybeSingle();
 

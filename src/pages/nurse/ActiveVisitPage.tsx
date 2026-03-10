@@ -31,6 +31,7 @@ import {
 import { Button, Card, CardHeader, CardTitle, Badge, Input, AnimatedPage } from '@/design-system';
 import { useSaveNurseVisit } from '@/hooks/useNurseClinicalData';
 import { useNursePatient } from '@/hooks/useNursePatients';
+import { SmartVisitBriefingCard } from '@/components/nurse/SmartVisitBriefingCard';
 import type { NurseVisitAct } from '@/lib/nurseClinical';
 import {
   DEFAULT_GEOFENCE_RADIUS_METERS,
@@ -44,6 +45,7 @@ import {
   type HourlyPilotPlaceOfService,
 } from '@/lib/hourlyPilot';
 import { useAuthStore } from '@/stores/authStore';
+import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 
 type VisitStep = 'identification' | 'vitals' | 'acts' | 'notes' | 'summary';
 
@@ -86,8 +88,18 @@ export function ActiveVisitPage() {
   });
   const [selectedActs, setSelectedActs] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
   const [barcodeResult, setBarcodeResult] = useState<string | null>(null);
+
+  // Real voice dictation
+  const voice = useVoiceRecognition('fr-BE');
+  const lastVoiceTranscriptRef = useRef('');
+  useEffect(() => { lastVoiceTranscriptRef.current = voice.transcript; }, [voice.transcript]);
+  useEffect(() => {
+    if (!voice.isRecording && lastVoiceTranscriptRef.current) {
+      setNotes((prev) => prev ? `${prev}\n${lastVoiceTranscriptRef.current}` : lastVoiceTranscriptRef.current);
+      lastVoiceTranscriptRef.current = '';
+    }
+  }, [voice.isRecording]);
   const { data: patient, isLoading, error, refetch } = useNursePatient(id);
   const [placeOfService, setPlaceOfService] = useState<HourlyPilotPlaceOfService>('A');
   const [careMode, setCareMode] = useState<HourlyPilotCareMode>('direct');
@@ -586,23 +598,26 @@ export function ActiveVisitPage() {
         >
           {/* ── Identification ── */}
           {currentStep === 'identification' && (
-            <Card gradient className="space-y-3">
-              <CardHeader>
-                <CardTitle>Patient identifié</CardTitle>
-                <Badge variant="green" dot>eID vérifié</Badge>
-              </CardHeader>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-[10px] text-[var(--text-muted)]">Nom</span><p className="font-medium">{patient.firstName} {patient.lastName}</p></div>
-                <div><span className="text-[10px] text-[var(--text-muted)]">NISS</span><p className="font-mono font-medium">{patient.niss}</p></div>
-                <div><span className="text-[10px] text-[var(--text-muted)]">Katz</span><p className="font-medium">{patient.katzCategory ?? 'N/A'}</p></div>
-                <div><span className="text-[10px] text-[var(--text-muted)]">Médecin</span><p className="font-medium">{patient.prescribingDoctor}</p></div>
-              </div>
-              {patient.allergies.length > 0 && (
-                <div className="p-2 rounded-lg bg-mc-red-50 dark:bg-red-900/20 border border-mc-red-200 dark:border-red-800">
-                  <p className="text-xs font-semibold text-mc-red-600">⚠ Allergies: {patient.allergies.join(', ')}</p>
+            <div className="space-y-3">
+              <Card gradient className="space-y-3">
+                <CardHeader>
+                  <CardTitle>Patient identifié</CardTitle>
+                  <Badge variant="green" dot>eID vérifié</Badge>
+                </CardHeader>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-[10px] text-[var(--text-muted)]">Nom</span><p className="font-medium">{patient.firstName} {patient.lastName}</p></div>
+                  <div><span className="text-[10px] text-[var(--text-muted)]">NISS</span><p className="font-mono font-medium">{patient.niss}</p></div>
+                  <div><span className="text-[10px] text-[var(--text-muted)]">Katz</span><p className="font-medium">{patient.katzCategory ?? 'N/A'}</p></div>
+                  <div><span className="text-[10px] text-[var(--text-muted)]">Médecin</span><p className="font-medium">{patient.prescribingDoctor}</p></div>
                 </div>
-              )}
-            </Card>
+                {patient.allergies.length > 0 && (
+                  <div className="p-2 rounded-lg bg-mc-red-50 dark:bg-red-900/20 border border-mc-red-200 dark:border-red-800">
+                    <p className="text-xs font-semibold text-mc-red-600">⚠ Allergies: {patient.allergies.join(', ')}</p>
+                  </div>
+                )}
+              </Card>
+              <SmartVisitBriefingCard patientRouteId={patient.id} />
+            </div>
           )}
 
           {/* ── Vitals ── */}
@@ -665,21 +680,28 @@ export function ActiveVisitPage() {
               <CardHeader>
                 <CardTitle>Notes & observations</CardTitle>
                 <button
-                  onClick={() => setIsRecording(!isRecording)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                    isRecording
+                  onClick={() => voice.isRecording ? voice.stop() : (voice.reset(), voice.start())}
+                  disabled={!voice.isSupported}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all
+                    disabled:opacity-40 disabled:cursor-not-allowed ${
+                    voice.isRecording
                       ? 'bg-mc-red-500 text-white animate-pulse'
                       : 'bg-mc-blue-500/10 text-mc-blue-500 hover:bg-mc-blue-500/20'
                   }`}
                 >
-                  {isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
-                  {isRecording ? 'Arrêter' : 'Dicter'}
+                  {voice.isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                  {voice.isRecording ? 'Arrêter' : 'Dicter'}
                 </button>
               </CardHeader>
-              {isRecording && (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-mc-red-500/10 text-sm">
-                  <div className="h-2 w-2 rounded-full bg-mc-red-500 animate-pulse" />
-                  <span className="text-mc-red-600">Enregistrement en cours — parlez maintenant…</span>
+              {voice.isRecording && (
+                <div className="flex flex-col gap-1 p-2 rounded-lg bg-mc-red-500/10 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-mc-red-500 animate-pulse" />
+                    <span className="text-mc-red-600">Enregistrement en cours — parlez maintenant…</span>
+                  </div>
+                  {voice.interimTranscript && (
+                    <p className="text-xs italic text-[var(--text-muted)] pl-4">{voice.interimTranscript}…</p>
+                  )}
                 </div>
               )}
               <textarea

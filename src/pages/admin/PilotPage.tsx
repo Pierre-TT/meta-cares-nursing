@@ -36,6 +36,39 @@ export function PilotPage() {
     );
   }
 
+  if (!data.schemaAvailable) {
+    return (
+      <AnimatedPage className="px-4 py-6 lg:px-8 max-w-5xl mx-auto space-y-4">
+        <GradientHeader
+          icon={<Clock className="h-5 w-5" />}
+          title="Pilote facturation horaire"
+          subtitle="Cet environnement n’expose pas encore les tables Supabase requises pour les indicateurs du pilote."
+          badge={<Badge variant="amber">Schéma indisponible</Badge>}
+        />
+
+        <Card className="border-l-4 border-l-mc-amber-500 space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 text-mc-amber-500" />
+            <div className="space-y-1 text-sm">
+              <p className="font-medium">Données runtime indisponibles</p>
+              <p className="text-[var(--text-muted)]">
+                Les tables <code>visit_hourly_billing_summaries</code> et <code>visit_hourly_billing_lines</code> ne sont
+                pas disponibles dans le projet Supabase actuellement connecté.
+              </p>
+              <p className="text-[var(--text-muted)]">
+                Le catalogue officiel reste embarqué côté application avec {data.catalog.length} codes prêts à l’emploi,
+                mais les indicateurs admin ne peuvent pas être calculés tant que le schéma n’est pas déployé.
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" onClick={() => refetch()}>
+            Réessayer
+          </Button>
+        </Card>
+      </AnimatedPage>
+    );
+  }
+
   const checklist = [
     {
       label: 'Catalogue officiel des pseudocodes chargé',

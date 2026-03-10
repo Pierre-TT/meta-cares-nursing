@@ -16,6 +16,11 @@ import { RequireAuth } from '@/components/auth/RequireAuth';
 import { RedirectIfAuth } from '@/components/auth/RedirectIfAuth';
 import { useAuthStore } from '@/stores/authStore';
 
+const routerFuture = {
+  v7_startTransition: true,
+  v7_relativeSplatPath: true,
+} as const;
+
 // ── Lazy Pages ──────────────────────────────────────────
 
 // Auth
@@ -30,6 +35,7 @@ const DashboardPage = lazy(() => import('@/pages/nurse/DashboardPage').then(m =>
 const NfcIdentifyPage = lazy(() => import('@/pages/nurse/NfcIdentifyPage').then(m => ({ default: m.NfcIdentifyPage })));
 const PatientsListPage = lazy(() => import('@/pages/nurse/PatientsListPage').then(m => ({ default: m.PatientsListPage })));
 const PatientDetailPage = lazy(() => import('@/pages/nurse/PatientDetailPage').then(m => ({ default: m.PatientDetailPage })));
+const SmartVisitBriefingPage = lazy(() => import('@/pages/nurse/SmartVisitBriefingPage').then(m => ({ default: m.SmartVisitBriefingPage })));
 const TourPage = lazy(() => import('@/pages/nurse/TourPage').then(m => ({ default: m.TourPage })));
 const TourMapPage = lazy(() => import('@/pages/nurse/TourMapPage').then(m => ({ default: m.TourMapPage })));
 const ActiveVisitPage = lazy(() => import('@/pages/nurse/ActiveVisitPage').then(m => ({ default: m.ActiveVisitPage })));
@@ -38,7 +44,7 @@ const BillingPage = lazy(() => import('@/pages/nurse/BillingPage').then(m => ({ 
 const KatzEvaluationPage = lazy(() => import('@/pages/nurse/KatzEvaluationPage').then(m => ({ default: m.KatzEvaluationPage })));
 const NewPatientPage = lazy(() => import('@/pages/nurse/NewPatientPage').then(m => ({ default: m.NewPatientPage })));
 const VisitSummaryPage = lazy(() => import('@/pages/nurse/VisitSummaryPage').then(m => ({ default: m.VisitSummaryPage })));
-const ProfilePage = lazy(() => import('@/pages/nurse/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const ProfileSettingsPage = lazy(() => import('@/pages/shared/ProfileSettingsPage').then(m => ({ default: m.ProfileSettingsPage })));
 const SettingsPage = lazy(() => import('@/pages/nurse/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const EHealthBoxPage = lazy(() => import('@/pages/nurse/EHealthBoxPage').then(m => ({ default: m.EHealthBoxPage })));
 const BelRAIScreenerPage = lazy(() => import('@/pages/nurse/BelRAIScreenerPage').then(m => ({ default: m.BelRAIScreenerPage })));
@@ -143,7 +149,7 @@ export default function App() {
     void initializeAuth();
   }, [initializeAuth]);
   return (
-    <BrowserRouter>
+    <BrowserRouter future={routerFuture}>
       <AnimatePresence mode="wait">
         <Suspense fallback={<PageSkeleton />}>
           <Routes>
@@ -167,6 +173,7 @@ export default function App() {
             <Route path="patients" element={<PatientsListPage />} />
             <Route path="patients/new" element={<NewPatientPage />} />
             <Route path="patients/:id" element={<PatientDetailPage />} />
+            <Route path="briefing/:patientId" element={<SmartVisitBriefingPage />} />
             <Route path="visit/:id" element={<ActiveVisitPage />} />
             <Route path="visit/:id/summary" element={<VisitSummaryPage />} />
             <Route path="wounds/:id" element={<WoundCarePage />} />
@@ -176,7 +183,7 @@ export default function App() {
             <Route path="vitalink/:patientId" element={<VitalinkPage />} />
             <Route path="eagreement" element={<EAgreementPage />} />
             <Route path="consent" element={<ConsentPage />} />
-            <Route path="profile" element={<ProfilePage />} />
+            <Route path="profile" element={<ProfileSettingsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="ehealthbox" element={<EHealthBoxPage />} />
             <Route path="hourly-comparison" element={<HourlyComparisonPage />} />
@@ -221,6 +228,7 @@ export default function App() {
             <Route path="quality" element={<QualityPage />} />
             <Route path="continuity" element={<ContinuityPage />} />
             <Route path="had-command-center" element={<HADCommandCenterPage />} />
+            <Route path="profile" element={<ProfileSettingsPage />} />
             <Route path="more" element={<CoordinatorMorePage />} />
           </Route>
 
@@ -238,6 +246,7 @@ export default function App() {
             <Route path="costs" element={<CostTransparencyPage />} />
             <Route path="diary" element={<CareDiaryPage />} />
             <Route path="hospital-mode" element={<HospitalModePage />} />
+            <Route path="profile" element={<ProfileSettingsPage />} />
             <Route path="more" element={<PatientMorePage />} />
           </Route>
 
@@ -256,6 +265,7 @@ export default function App() {
             <Route path="consents" element={<ConsentRegistryPage />} />
             <Route path="incidents" element={<IncidentResponsePage />} />
             <Route path="backups" element={<BackupRecoveryPage />} />
+            <Route path="profile" element={<ProfileSettingsPage />} />
             <Route path="settings" element={<AdminSettingsPage />} />
           </Route>
 
@@ -276,6 +286,7 @@ export default function App() {
             <Route path="simulator" element={<TariffSimulatorPage />} />
             <Route path="mutuelles" element={<MutuelleDirectoryPage />} />
             <Route path="audit" element={<BillingAuditPage />} />
+            <Route path="profile" element={<ProfileSettingsPage />} />
             <Route path="settings" element={<BillingSettingsPage />} />
           </Route>
 

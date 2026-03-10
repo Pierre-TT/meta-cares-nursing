@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import {
   Euro, TrendingUp, AlertTriangle, CheckCircle, Send,
-  BookOpen, Calculator, Activity, Wifi, WifiOff, Sparkles, Users,
+  BookOpen, Calculator, Activity, Wifi, WifiOff, Sparkles, Users, ArrowRight,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, Badge, Button, AnimatedPage, GradientHeader, StatRing } from '@/design-system';
 import { useHourlyPilotAdminOverview } from '@/hooks/useHourlyPilotData';
 import { useBillingDashboardData } from '@/hooks/usePlatformData';
+import { useBillingAutopilot } from '@/hooks/useBillingAutopilot';
 
 const billingActivityIcons = {
   send: Send,
@@ -18,6 +19,7 @@ export function BillingDashboardPage() {
   const navigate = useNavigate();
   const { data } = useBillingDashboardData();
   const { data: pilotOverview } = useHourlyPilotAdminOverview();
+  const { data: autopilot, isLoading: isAutopilotLoading, error: autopilotError } = useBillingAutopilot();
   const { kpis, revenueTrend, recentActivity, mutuelleStatus } = data;
   const maxVal = Math.max(...revenueTrend.map(r => r.value), 1);
   const revenueGrowth =
@@ -146,6 +148,99 @@ export function BillingDashboardPage() {
           </div>
         </Card>
       )}
+
+      <Card className="border-l-4 border-l-mc-green-500">
+        <CardHeader>
+          <CardTitle>Billing autopilot</CardTitle>
+          <Badge variant={autopilot && autopilot.blockedCount + autopilot.reviewCount + autopilot.recoveryCount > 0 ? 'amber' : 'green'}>
+            {autopilot ? `${autopilot.automationRate}% automatisable` : 'Analyse'}
+          </Badge>
+        </CardHeader>
+
+        {isAutopilotLoading ? (
+          <p className="text-sm text-[var(--text-muted)]">Analyse des dossiers horaires et accords MyCareNet...</p>
+        ) : autopilotError ? (
+          <p className="text-sm text-mc-red-600">{(autopilotError as Error).message}</p>
+        ) : autopilot ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-center text-sm">
+              <div className="rounded-xl bg-[var(--bg-tertiary)] p-3">
+                <p className="text-xs text-[var(--text-muted)]">Prets</p>
+                <p className="font-bold text-mc-green-500">{autopilot.readyCount}</p>
+                <p className="text-[10px] text-[var(--text-muted)]">EUR {autopilot.readyAmount.toFixed(0)}</p>
+              </div>
+              <div className="rounded-xl bg-[var(--bg-tertiary)] p-3">
+                <p className="text-xs text-[var(--text-muted)]">Bloques</p>
+                <p className="font-bold text-mc-amber-500">{autopilot.blockedCount}</p>
+                <p className="text-[10px] text-[var(--text-muted)]">Prerequis</p>
+              </div>
+              <div className="rounded-xl bg-[var(--bg-tertiary)] p-3">
+                <p className="text-xs text-[var(--text-muted)]">Relectures</p>
+                <p className="font-bold text-mc-red-500">{autopilot.reviewCount}</p>
+                <p className="text-[10px] text-[var(--text-muted)]">Controle</p>
+              </div>
+              <div className="rounded-xl bg-[var(--bg-tertiary)] p-3">
+                <p className="text-xs text-[var(--text-muted)]">A risque</p>
+                <p className="font-bold text-mc-blue-500">EUR {autopilot.atRiskAmount.toFixed(0)}</p>
+                <p className="text-[10px] text-[var(--text-muted)]">{autopilot.recoveryCount} relance(s)</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-mc-blue-500/10 border border-mc-blue-500/20 p-3">
+              <p className="text-sm font-medium">{autopilot.note}</p>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                L autopilote priorise la relecture horaire, les accords MyCareNet a relancer et les dossiers deja exportables.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {autopilot.items.length === 0 ? (
+                <p className="text-sm text-[var(--text-muted)]">Aucun dossier recent a prioriser.</p>
+              ) : autopilot.items.map((item) => (
+                <div key={item.id} className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold">{item.patientLabel}</p>
+                        <Badge
+                          variant={
+                            item.lane === 'ready'
+                              ? 'green'
+                              : item.lane === 'review'
+                                ? 'red'
+                                : item.lane === 'recovery'
+                                  ? 'blue'
+                                  : 'amber'
+                          }
+                        >
+                          {item.title}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-[var(--text-muted)] mt-1">
+                        {item.nurseLabel} · {item.mutualityLabel} · {new Date(item.generatedAt).toLocaleDateString('fr-BE')}
+                      </p>
+                      <p className="text-sm mt-2">{item.detail}</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {item.tags.map((tag) => (
+                          <Badge key={`${item.id}-${tag}`} variant="outline">{tag}</Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold">EUR {item.amount.toFixed(2)}</p>
+                      <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate(item.actionPath)}>
+                        {item.actionLabel}
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </Card>
 
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Activity Feed */}

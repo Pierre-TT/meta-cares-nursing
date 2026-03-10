@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Activity,
   AlertTriangle,
@@ -10,7 +12,18 @@ import {
   Server,
   ShieldCheck,
 } from 'lucide-react';
-import { Avatar, Badge, Button, Card, CardHeader, CardTitle, AnimatedPage, GradientHeader, StatRing } from '@/design-system';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  CardTitle,
+  AnimatedPage,
+  GradientHeader,
+  Modal,
+  StatRing,
+} from '@/design-system';
 import { useAdminPlatformData } from '@/hooks/usePlatformData';
 
 function getRecoveryIcon(label: string) {
@@ -21,15 +34,22 @@ function getRecoveryIcon(label: string) {
 }
 
 export function AdminDashboard() {
+  const navigate = useNavigate();
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const { data } = useAdminPlatformData();
   const { summary, certificateBanner, serviceHealth, riskQueues, recentActivity, recoveryHighlights } = data;
+
+  function openRoute(path: string) {
+    setAlertsOpen(false);
+    navigate(path);
+  }
 
   return (
     <AnimatedPage className="px-4 py-6 lg:px-8 max-w-5xl mx-auto space-y-4">
       <GradientHeader
         icon={<ShieldCheck className="h-5 w-5" />}
         title="Command center admin"
-        subtitle="Sécurité, conformité et opérations plateforme"
+        subtitle="Securite, conformite et operations plateforme"
         badge={<Badge variant="green" dot>Plateforme stable</Badge>}
       >
         <div className="flex items-center justify-around mt-1">
@@ -45,7 +65,7 @@ export function AdminDashboard() {
           <div className="h-6 w-px bg-white/20" />
           <div className="text-center">
             <p className="text-lg font-bold text-white">{summary.certificateDeadlines}</p>
-            <p className="text-[10px] text-white/60">Échéances certif.</p>
+            <p className="text-[10px] text-white/60">Echeances certif.</p>
           </div>
         </div>
       </GradientHeader>
@@ -55,7 +75,7 @@ export function AdminDashboard() {
           <StatRing value={summary.uptime} max={100} label="Uptime" suffix="%" color="green" />
         </Card>
         <Card className="flex flex-col items-center py-3">
-          <StatRing value={summary.complianceScore} max={100} label="Conformité" suffix="%" color="blue" />
+          <StatRing value={summary.complianceScore} max={100} label="Conformite" suffix="%" color="blue" />
         </Card>
         <Card className="flex flex-col items-center py-3">
           <StatRing value={summary.mfaCoverage} max={100} label="MFA" suffix="%" color="amber" />
@@ -72,14 +92,16 @@ export function AdminDashboard() {
             <p className="text-sm font-semibold">{certificateBanner.title}</p>
             <p className="text-xs text-[var(--text-muted)]">{certificateBanner.detail}</p>
           </div>
-          <Button variant="outline" size="sm">Voir certificats</Button>
+          <Button variant="outline" size="sm" onClick={() => navigate('/admin/certificates')}>
+            Voir certificats
+          </Button>
         </div>
       </Card>
 
       <div className="grid lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Santé des dépendances</CardTitle>
+            <CardTitle>Sante des dependances</CardTitle>
             <Badge variant="green">{serviceHealth.length} services</Badge>
           </CardHeader>
           <div className="space-y-3">
@@ -124,20 +146,20 @@ export function AdminDashboard() {
       <div className="grid lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Résilience & reprise</CardTitle>
+            <CardTitle>Resilience & reprise</CardTitle>
             <Badge variant="green">RPO 15 min</Badge>
           </CardHeader>
           <div className="space-y-3">
             {recoveryHighlights.map((row) => {
               const Icon = getRecoveryIcon(row.label);
               return (
-              <div key={row.label} className="flex items-center justify-between py-2 border-b border-[var(--border-subtle)] last:border-0">
-                <div className="flex items-center gap-2">
-                  <Icon className={`h-4 w-4 ${row.tone === 'green' ? 'text-mc-green-500' : row.tone === 'blue' ? 'text-mc-blue-500' : 'text-mc-amber-500'}`} />
-                  <span className="text-sm">{row.label}</span>
+                <div key={row.label} className="flex items-center justify-between py-2 border-b border-[var(--border-subtle)] last:border-0">
+                  <div className="flex items-center gap-2">
+                    <Icon className={`h-4 w-4 ${row.tone === 'green' ? 'text-mc-green-500' : row.tone === 'blue' ? 'text-mc-blue-500' : 'text-mc-amber-500'}`} />
+                    <span className="text-sm">{row.label}</span>
+                  </div>
+                  <span className="text-xs font-medium">{row.value}</span>
                 </div>
-                <span className="text-xs font-medium">{row.value}</span>
-              </div>
               );
             })}
           </div>
@@ -145,8 +167,8 @@ export function AdminDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Activité critique récente</CardTitle>
-            <Badge variant="blue">Temps réel</Badge>
+            <CardTitle>Activite critique recente</CardTitle>
+            <Badge variant="blue">Temps reel</Badge>
           </CardHeader>
           <div className="space-y-2">
             {recentActivity.map((item) => (
@@ -164,15 +186,53 @@ export function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Button variant="outline" className="justify-start">
+        <Button variant="outline" className="justify-start" onClick={() => setAlertsOpen(true)}>
           <BellRing className="h-4 w-4" />
-          Ouvrir centre d’alertes
+          Ouvrir centre d alertes
         </Button>
-        <Button variant="gradient" className="justify-start">
+        <Button variant="gradient" className="justify-start" onClick={() => navigate('/admin/incidents')}>
           <Activity className="h-4 w-4" />
           Voir incidents & DSAR
         </Button>
       </div>
+
+      <Modal open={alertsOpen} onClose={() => setAlertsOpen(false)} title="Centre d alertes" size="lg">
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Suivi prioritaire des risques ouverts, des incidents en cours et des demandes de conformite.
+          </p>
+
+          <div className="space-y-3">
+            {riskQueues.length > 0 ? (
+              riskQueues.map((item) => (
+                <div key={item.title} className="p-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="text-xs text-[var(--text-muted)]">{item.detail}</p>
+                    </div>
+                    <Badge variant={item.severity}>{item.count}</Badge>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">Aucune alerte prioritaire n est ouverte.</p>
+            )}
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Button variant="outline" onClick={() => openRoute('/admin/certificates')}>
+              Certificats
+            </Button>
+            <Button variant="primary" onClick={() => openRoute('/admin/incidents')}>
+              Incidents
+            </Button>
+            <Button variant="secondary" onClick={() => openRoute('/admin/rgpd')}>
+              DSAR & RGPD
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </AnimatedPage>
   );
 }

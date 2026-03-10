@@ -23,6 +23,7 @@ import {
 import { Button, Card, CardHeader, CardTitle, Badge, Avatar, ContentTabs, AnimatedPage, GradientHeader } from '@/design-system';
 import { BelRAILiveCard } from '@/components/nurse/BelRAILiveCard';
 import { QuickPatientActions } from '@/components/nurse/QuickPatientActions';
+import { SmartVisitBriefingCard } from '@/components/nurse/SmartVisitBriefingCard';
 import { useBelraiTwin } from '@/hooks/useBelraiTwin';
 import { useHadEpisodeDetail, useHadPatientEpisodes } from '@/hooks/useHadData';
 import { useNurseVisitHistory, useNurseWoundAssessments } from '@/hooks/useNurseClinicalData';
@@ -1276,6 +1277,7 @@ export function PatientDetailPage() {
         </div>
       </GradientHeader>
       <QuickPatientActions patient={patient} />
+      <SmartVisitBriefingCard patientRouteId={patient.id} />
       <BelRAILiveCard patient={patient} />
 
       {/* Tabs */}

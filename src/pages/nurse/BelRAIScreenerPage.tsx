@@ -10,6 +10,8 @@ import {
   Save,
   ShieldCheck,
   Sparkles,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import { AnimatedPage, Badge, Button, Card, CardHeader, CardTitle, ContentTabs, GradientHeader } from '@/design-system';
 import {
@@ -20,6 +22,7 @@ import {
   type StoredBelraiDraft,
 } from '@/lib/belrai';
 import { useBelraiTwin } from '@/hooks/useBelraiTwin';
+import { useOfflineClinicalSync } from '@/hooks/useOfflineClinicalSync';
 
 function toneToBadgeVariant(tone: BelraiTone) {
   return tone;
@@ -39,7 +42,17 @@ function priorityToBadgeVariant(priority: 'low' | 'medium' | 'high') {
 export function BelRAIScreenerPage() {
   const { patientId } = useParams();
   const navigate = useNavigate();
-  const { data, isLoading, error, saveDraft, markReadyForSync, resetDraft, isSaving } = useBelraiTwin(patientId);
+  const {
+    data,
+    isLoading,
+    error,
+    saveDraft,
+    markReadyForSync,
+    resetDraft,
+    syncOfflineDrafts,
+    isSaving,
+  } = useBelraiTwin(patientId);
+  const offlineSync = useOfflineClinicalSync(patientId);
   const [localDraftState, setLocalDraftState] = useState<{
     patientId: string | null;
     draft: StoredBelraiDraft | null;
@@ -166,6 +179,11 @@ export function BelRAIScreenerPage() {
     const resetSnapshot = await resetDraft();
     setDraft(resetSnapshot.draft);
     setExpandedSections(new Set(['cognition', 'adl']));
+  };
+
+  const handleSyncOfflineDrafts = async () => {
+    await syncOfflineDrafts();
+    offlineSync.refresh();
   };
 
   if (error) {
@@ -491,6 +509,12 @@ export function BelRAIScreenerPage() {
     { label: 'Revue & preuves', content: reviewTab },
     { label: 'CAPs & soins', content: capsTab },
   ];
+  const belraiQueueCount = offlineSync.snapshot.belraiEntries.length;
+  const hasPendingBelraiSync = belraiQueueCount > 0;
+  const shouldShowSyncNowAction =
+    hasPendingBelraiSync &&
+    offlineSync.snapshot.online &&
+    draft.status === 'ready_for_sync';
 
   return (
     <AnimatedPage className="px-4 py-6 max-w-3xl mx-auto space-y-4">
@@ -546,6 +570,44 @@ export function BelRAIScreenerPage() {
         </div>
       </Card>
 
+      <Card className={offlineSync.snapshot.online ? 'border-l-4 border-l-mc-green-500' : 'border-l-4 border-l-mc-amber-500'}>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${offlineSync.snapshot.online ? 'bg-mc-green-500/15' : 'bg-mc-amber-500/15'}`}>
+              {offlineSync.snapshot.online ? (
+                <Wifi className="h-5 w-5 text-mc-green-500" />
+              ) : (
+                <WifiOff className="h-5 w-5 text-mc-amber-500" />
+              )}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-semibold">
+                  {offlineSync.snapshot.online ? 'File offline BelRAI disponible' : 'Mode hors ligne actif'}
+                </p>
+                <Badge variant={belraiQueueCount > 0 ? 'amber' : 'green'}>
+                  {belraiQueueCount} en attente
+                </Badge>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                {offlineSync.snapshot.online
+                  ? belraiQueueCount > 0
+                    ? 'Les brouillons BelRAI marques prets peuvent maintenant etre re-injectes dans la file de synchronisation.'
+                    : 'Aucun brouillon BelRAI hors ligne ne reste a synchroniser.'
+                  : 'Les modifications restent locales. Marquez le screener pret puis reprenez la synchronisation une fois la connexion retablie.'}
+              </p>
+            </div>
+          </div>
+
+          {offlineSync.snapshot.online && hasPendingBelraiSync && (
+            <Button variant="outline" size="sm" onClick={() => void handleSyncOfflineDrafts()} disabled={isSaving}>
+              <RefreshCw className="h-4 w-4" />
+              Synchroniser la file
+            </Button>
+          )}
+        </div>
+      </Card>
+
       <ContentTabs tabs={tabs} />
 
       <div className="grid gap-2 sm:grid-cols-3">
@@ -560,11 +622,11 @@ export function BelRAIScreenerPage() {
         <Button
           variant="gradient"
           className="justify-start"
-          onClick={handleMarkReady}
-          disabled={!snapshot.readyToSync || isSaving}
+          onClick={shouldShowSyncNowAction ? () => void handleSyncOfflineDrafts() : handleMarkReady}
+          disabled={(!snapshot.readyToSync && !shouldShowSyncNowAction) || isSaving}
         >
           <CheckCircle2 className="h-4 w-4" />
-          Marquer prêt
+          {shouldShowSyncNowAction ? 'Synchroniser maintenant' : 'Marquer prêt'}
         </Button>
       </div>
     </AnimatedPage>

@@ -1,5 +1,16 @@
 import type { Tables, TablesInsert } from '@/lib/database.types';
-import { buildBelraiTwin, loadStoredBelraiDraft, persistBelraiDraft, resetBelraiDraft, type BelraiScoreCard, type BelraiTwinSnapshot, type StoredBelraiDraft } from '@/lib/belrai';
+import {
+  buildBelraiTwin,
+  isBelraiDraftPendingSync,
+  listStoredBelraiDrafts,
+  loadStoredBelraiDraft,
+  persistBelraiDraft,
+  resetBelraiDraft,
+  type BelraiScoreCard,
+  type BelraiTwinSnapshot,
+  type StoredBelraiDraft,
+} from '@/lib/belrai';
+import { queueDataAccessLog } from '@/lib/dataAccess';
 import { mapPatientRecordToProfile } from '@/lib/platformData';
 import { mockPatients, type Patient } from '@/lib/patients';
 import { supabase } from '@/lib/supabase';
@@ -130,6 +141,11 @@ async function fetchLatestAssessment(databasePatientId: string) {
     .maybeSingle();
 
   if (error) {
+    // 42P01 → table not yet created; fall back gracefully so the twin
+    // loads from localStorage instead of throwing.
+    if (error.code === '42P01') {
+      return null;
+    }
     throw error;
   }
 
@@ -192,6 +208,33 @@ function buildCachedDraft(
     patientId,
     ...overrides,
   } satisfies StoredBelraiDraft;
+}
+
+function queueBelraiReadLog(
+  snapshot: BelraiTwinSnapshot,
+  patient: Patient,
+  routePatientId: string,
+  databasePatientId: string | null,
+  source: 'local' | 'supabase' | 'local-fallback',
+) {
+  const patientLabel = `${patient.firstName} ${patient.lastName}`.trim() || 'Patient';
+
+  queueDataAccessLog({
+    tableName: 'belrai_assessments',
+    action: 'read',
+    patientId: databasePatientId,
+    resourceLabel: `Consultation BelRAI · ${patientLabel}`,
+    containsPii: true,
+    severity: 'medium',
+    metadata: {
+      routePatientId,
+      source,
+      persistenceMode: snapshot.persistenceMode,
+      status: snapshot.draft.status,
+      syncStatus: snapshot.draft.syncStatus,
+      progressPercent: snapshot.progress.percent,
+    },
+  });
 }
 
 function toAssessmentSummary(snapshot: BelraiTwinSnapshot) {
@@ -575,20 +618,55 @@ export async function loadBelraiSnapshot(patientId: string): Promise<BelraiTwinS
   const cachedDraft = loadStoredBelraiDraft(patientId);
 
   if (!resolved.databasePatientId) {
-    return buildBelraiTwin(resolved.patient, buildCachedDraft(patientId, cachedDraft, { storage: 'local' }));
+    const snapshot = buildBelraiTwin(
+      resolved.patient,
+      buildCachedDraft(patientId, cachedDraft, { storage: 'local' }),
+    );
+    queueBelraiReadLog(snapshot, resolved.patient, patientId, null, 'local');
+    return snapshot;
   }
 
   try {
     const persistedDraft = await loadPersistedDraft(patientId, resolved.databasePatientId);
 
     if (!persistedDraft) {
-      return buildBelraiTwin(resolved.patient, buildCachedDraft(patientId, cachedDraft, { storage: 'local' }));
+      const snapshot = buildBelraiTwin(
+        resolved.patient,
+        buildCachedDraft(patientId, cachedDraft, { storage: 'local' }),
+      );
+      queueBelraiReadLog(
+        snapshot,
+        resolved.patient,
+        patientId,
+        resolved.databasePatientId,
+        'local-fallback',
+      );
+      return snapshot;
     }
 
     persistBelraiDraft(patientId, persistedDraft, { preserveUpdatedAt: true });
-    return buildBelraiTwin(resolved.patient, persistedDraft);
+    const snapshot = buildBelraiTwin(resolved.patient, persistedDraft);
+    queueBelraiReadLog(
+      snapshot,
+      resolved.patient,
+      patientId,
+      resolved.databasePatientId,
+      'supabase',
+    );
+    return snapshot;
   } catch {
-    return buildBelraiTwin(resolved.patient, buildCachedDraft(patientId, cachedDraft, { storage: 'local' }));
+    const snapshot = buildBelraiTwin(
+      resolved.patient,
+      buildCachedDraft(patientId, cachedDraft, { storage: 'local' }),
+    );
+    queueBelraiReadLog(
+      snapshot,
+      resolved.patient,
+      patientId,
+      resolved.databasePatientId,
+      'local-fallback',
+    );
+    return snapshot;
   }
 }
 
@@ -650,6 +728,70 @@ export async function markBelraiSnapshotReady(
       buildCachedDraft(patientId, nextDraft, { storage: 'local', syncStatus: 'local_only' }),
     );
   }
+}
+
+export interface BelraiOfflineSyncResult {
+  patientId: string;
+  synced: boolean;
+  message: string;
+}
+
+export async function syncBelraiOfflineDrafts(patientId?: string): Promise<BelraiOfflineSyncResult[]> {
+  const pendingDrafts = listStoredBelraiDrafts()
+    .filter((draft) => isBelraiDraftPendingSync(draft))
+    .filter((draft) => (patientId ? draft.patientId === patientId : true));
+
+  const results: BelraiOfflineSyncResult[] = [];
+
+  for (const draft of pendingDrafts) {
+    const resolved = await resolveBelraiPatient(draft.patientId);
+
+    if (!resolved.databasePatientId) {
+      results.push({
+        patientId: draft.patientId,
+        synced: false,
+        message: 'Aucune persistance distante disponible pour ce patient.',
+      });
+      continue;
+    }
+
+    try {
+      const nextDraft = buildCachedDraft(draft.patientId, draft, {
+        status: 'ready_for_sync',
+        syncStatus: 'queued',
+        storage: 'supabase',
+        submittedAt: draft.submittedAt ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      const snapshot = buildBelraiTwin(resolved.patient, nextDraft);
+      const persistedDraft = await persistBelraiGraph(
+        resolved.databasePatientId,
+        nextDraft,
+        snapshot,
+        { queueSync: true },
+      );
+
+      persistBelraiDraft(draft.patientId, persistedDraft, { preserveUpdatedAt: true });
+      results.push({
+        patientId: draft.patientId,
+        synced: true,
+        message: 'Brouillon BelRAI remis dans la file de synchronisation.',
+      });
+    } catch {
+      persistBelraiDraft(draft.patientId, buildCachedDraft(draft.patientId, draft, {
+        status: 'ready_for_sync',
+        syncStatus: 'error',
+        storage: 'local',
+      }));
+      results.push({
+        patientId: draft.patientId,
+        synced: false,
+        message: 'La reprise BelRAI a echoue. Le brouillon reste local.',
+      });
+    }
+  }
+
+  return results;
 }
 
 export async function resetBelraiSnapshot(patientId: string): Promise<BelraiTwinSnapshot> {

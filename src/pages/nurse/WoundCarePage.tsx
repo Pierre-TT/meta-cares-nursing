@@ -12,10 +12,16 @@ import {
   Ruler,
   FileText,
   CheckCircle,
+  Wifi,
+  WifiOff,
+  CloudUpload,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button, Card, CardHeader, CardTitle, Badge, ContentTabs, Input, AnimatedPage, GradientHeader } from '@/design-system';
 import { useCreateNurseWoundAssessment, useNurseWoundAssessments } from '@/hooks/useNurseClinicalData';
 import { useNursePatient } from '@/hooks/useNursePatients';
+import { useOfflineClinicalSync } from '@/hooks/useOfflineClinicalSync';
+import { enqueueOfflineWoundAssessment } from '@/lib/offlineClinicalSync';
 import { useAuthStore } from '@/stores/authStore';
 
 const woundTypes = [
@@ -82,6 +88,15 @@ function formatDimension(value?: number) {
   return typeof value === 'number' ? value.toFixed(1) : '—';
 }
 
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString('fr-BE', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function parseDecimalInput(value: string) {
   const parsed = Number.parseFloat(value.replace(',', '.'));
   return Number.isNaN(parsed) ? undefined : parsed;
@@ -112,6 +127,7 @@ export function WoundCarePage() {
     refetch: refetchWoundHistory,
   } = useNurseWoundAssessments(patient?.databaseId);
   const saveAssessmentMutation = useCreateNurseWoundAssessment();
+  const offlineSync = useOfflineClinicalSync(patient?.databaseId);
   const inferredZone = inferWoundZone(patient?.pathologies ?? []);
   const latestAssessment = woundHistory[0];
   const woundLabel =
@@ -129,6 +145,7 @@ export function WoundCarePage() {
     tissueType: string;
     pain: string;
   }>>({});
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const woundForm = {
     type: woundDraft.type ?? latestAssessment?.woundType ?? inferWoundType(woundLabel),
     length: woundDraft.length ?? latestAssessment?.lengthCm?.toString() ?? '',
@@ -219,25 +236,67 @@ export function WoundCarePage() {
       return;
     }
 
-    try {
-      await saveAssessmentMutation.mutateAsync({
-        patientId: patient.databaseId,
-        recordedByProfileId: user?.role === 'nurse' ? user.id : undefined,
-        woundLabel,
-        woundType: woundForm.type,
-        zoneId: activeZone,
-        lengthCm: parseDecimalInput(woundForm.length),
-        widthCm: parseDecimalInput(woundForm.width),
-        depthCm: parseDecimalInput(woundForm.depth),
-        exudateLevel: woundForm.exudate,
-        tissueType: woundForm.tissueType,
-        pain: parseIntegerInput(woundForm.pain),
-        metadata: {
-          source: 'nurse_wound_page',
-        },
+    const payload = {
+      patientId: patient.databaseId,
+      recordedByProfileId: user?.role === 'nurse' ? user.id : undefined,
+      woundLabel,
+      woundType: woundForm.type,
+      zoneId: activeZone,
+      lengthCm: parseDecimalInput(woundForm.length),
+      widthCm: parseDecimalInput(woundForm.width),
+      depthCm: parseDecimalInput(woundForm.depth),
+      exudateLevel: woundForm.exudate,
+      tissueType: woundForm.tissueType,
+      pain: parseIntegerInput(woundForm.pain),
+      metadata: {
+        source: 'nurse_wound_page',
+      },
+      recordedAt: new Date().toISOString(),
+    };
+
+    if (!offlineSync.snapshot.online) {
+      enqueueOfflineWoundAssessment(payload, {
+        patientLabel: `${patient.lastName} ${patient.firstName}`.trim(),
       });
-    } catch {
+      offlineSync.refresh();
+      setSyncFeedback('Evaluation de plaie enregistree hors ligne. Elle sera synchronisee des que la connexion reviendra.');
+      return;
+    }
+
+    try {
+      await saveAssessmentMutation.mutateAsync(payload);
+      setSyncFeedback('Evaluation de plaie synchronisee.');
+    } catch (error) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        enqueueOfflineWoundAssessment(payload, {
+          patientLabel: `${patient.lastName} ${patient.firstName}`.trim(),
+        });
+        offlineSync.refresh();
+        setSyncFeedback('Connexion perdue pendant l enregistrement. La mesure reste en file locale.');
+        return;
+      }
+
+      setSyncFeedback(error instanceof Error ? error.message : null);
       // handled by mutation state below
+    }
+  };
+
+  const handleSyncOfflineQueue = async () => {
+    const result = await offlineSync.flushWoundQueue();
+
+    if (result.syncedCount > 0) {
+      await refetchWoundHistory();
+    }
+
+    if (result.syncedCount > 0 && result.failedCount === 0) {
+      setSyncFeedback(`${result.syncedCount} evaluation(s) hors ligne synchronisee(s).`);
+      return;
+    }
+
+    if (result.syncedCount > 0 || result.failedCount > 0) {
+      setSyncFeedback(
+        `${result.syncedCount} synchronisee(s), ${result.failedCount} encore en attente.`,
+      );
     }
   };
 
@@ -485,19 +544,104 @@ export function WoundCarePage() {
         </div>
       </Card>
 
+      <Card className={offlineSync.snapshot.online ? 'border-l-4 border-l-mc-green-500' : 'border-l-4 border-l-mc-amber-500'}>
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${offlineSync.snapshot.online ? 'bg-mc-green-500/15' : 'bg-mc-amber-500/15'}`}>
+              {offlineSync.snapshot.online ? (
+                <Wifi className="h-5 w-5 text-mc-green-500" />
+              ) : (
+                <WifiOff className="h-5 w-5 text-mc-amber-500" />
+              )}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-semibold">
+                  {offlineSync.snapshot.online ? 'Synchronisation de plaies active' : 'Mode hors ligne actif'}
+                </p>
+                <Badge variant={offlineSync.snapshot.woundEntries.length > 0 ? 'amber' : 'green'}>
+                  {offlineSync.snapshot.woundEntries.length} en attente
+                </Badge>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                {offlineSync.snapshot.online
+                  ? offlineSync.snapshot.woundEntries.length > 0
+                    ? 'Les evaluations locales peuvent maintenant etre poussees vers le dossier clinique.'
+                    : 'Toutes les evaluations de plaie connues sont synchronisees.'
+                  : 'Les nouvelles evaluations sont conservees localement avec horodatage, zone et mesures.'}
+              </p>
+            </div>
+          </div>
+
+          {offlineSync.snapshot.online && offlineSync.snapshot.woundEntries.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => void handleSyncOfflineQueue()} disabled={offlineSync.isSyncing}>
+              <CloudUpload className="h-4 w-4" />
+              Synchroniser
+            </Button>
+          )}
+        </div>
+
+        {offlineSync.snapshot.woundEntries.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {offlineSync.snapshot.woundEntries.slice(0, 3).map((entry) => (
+              <div key={entry.localId} className="rounded-xl bg-[var(--bg-secondary)] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">{entry.woundLabel}</p>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      {bodyZones.find((zone) => zone.id === entry.zoneId)?.label ?? entry.zoneId} · {formatDateTime(entry.recordedAt)}
+                    </p>
+                  </div>
+                  <Badge variant={entry.retryCount > 0 ? 'red' : 'amber'}>
+                    {entry.retryCount > 0 ? `Retry ${entry.retryCount}` : 'Local'}
+                  </Badge>
+                </div>
+                {entry.lastError && (
+                  <p className="text-[10px] text-mc-red-500 mt-1">{entry.lastError}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
       <ContentTabs tabs={tabs} />
+
+      {syncFeedback && (
+        <Card className="border-mc-blue-200 bg-mc-blue-500/5">
+          <div className="flex items-start gap-3">
+            <CloudUpload className="h-4 w-4 text-mc-blue-500 mt-0.5 shrink-0" />
+            <p className="text-sm">{syncFeedback}</p>
+          </div>
+        </Card>
+      )}
 
       {saveAssessmentMutation.error && (
         <Card className="border-mc-red-200 dark:border-red-800 bg-mc-red-50/70 dark:bg-red-900/10">
           <p className="text-sm text-mc-red-600 dark:text-red-300">
-            L’évaluation de plaie n’a pas pu être enregistrée.
+            L evaluation de plaie n a pas pu etre enregistree.
           </p>
         </Card>
       )}
 
-      <Button variant="gradient" size="lg" className="w-full" disabled={saveAssessmentMutation.isPending} onClick={() => { void handleSaveAssessment(); }}>
+      {!offlineSync.snapshot.online && (
+        <Card className="border border-mc-amber-500/20 bg-mc-amber-500/10">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-4 w-4 text-mc-amber-500 mt-0.5 shrink-0" />
+            <p className="text-sm text-[var(--text-secondary)]">
+              Vous etes hors ligne. Le bouton d enregistrement ajoute l evaluation a la file locale avec reprise automatique au retour de connexion.
+            </p>
+          </div>
+        </Card>
+      )}
+
+      <Button variant="gradient" size="lg" className="w-full" disabled={saveAssessmentMutation.isPending || offlineSync.isSyncing} onClick={() => { void handleSaveAssessment(); }}>
         <CheckCircle className="h-4 w-4" />
-        {saveAssessmentMutation.isPending ? 'Enregistrement...' : 'Enregistrer l’évaluation'}
+        {saveAssessmentMutation.isPending
+          ? 'Enregistrement...'
+          : offlineSync.snapshot.online
+            ? 'Enregistrer l evaluation'
+            : 'Enregistrer hors ligne'}
       </Button>
     </AnimatedPage>
   );

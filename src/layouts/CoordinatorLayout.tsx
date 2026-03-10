@@ -20,7 +20,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { useAuthStore } from '@/stores/authStore';
+import { roleProfileRoutes, useAuthStore } from '@/stores/authStore';
 import { Avatar } from '@/design-system';
 
 /* ── Navigation sections ── */
@@ -68,6 +68,8 @@ export function CoordinatorLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
+  const user = useAuthStore((s) => s.user);
+  const profilePath = user ? roleProfileRoutes[user.role] : '/coordinator/profile';
 
   const isActive = (path: string) => {
     if (path === '/coordinator') return location.pathname === '/coordinator';
@@ -135,14 +137,24 @@ export function CoordinatorLayout() {
 
         {/* Profile footer */}
         <div className="p-3 space-y-1 border-t border-[var(--border-default)]">
-          <div className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl">
-            <Avatar name="Sarah Coordinateur" size="sm" />
+          <button
+            type="button"
+            onClick={() => navigate(profilePath)}
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors"
+          >
+              <Avatar
+                src={user?.avatarUrl}
+                name={`${user?.firstName ?? 'Meta'} ${user?.lastName ?? 'Cares'}`}
+                size="sm"
+              />
             <div className="flex-1 text-left min-w-0">
-              <p className="text-sm font-medium truncate">Sarah Coordinateur</p>
-              <p className="text-[10px] text-[var(--text-muted)]">Responsable d'équipe</p>
+              <p className="text-sm font-medium truncate">
+                {user ? `${user.firstName} ${user.lastName}` : 'Mon profil'}
+              </p>
+              <p className="text-[10px] text-[var(--text-muted)]">Modifier le profil</p>
             </div>
             <ChevronRight className="h-4 w-4 text-[var(--text-muted)]" />
-          </div>
+          </button>
           <button
             onClick={() => { logout(); navigate('/login'); }}
             className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-sm font-medium text-[var(--text-muted)] hover:text-mc-red-500 hover:bg-mc-red-50 dark:hover:bg-red-900/20 transition-colors"

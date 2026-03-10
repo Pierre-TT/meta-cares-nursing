@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  ClipboardPlus,
   ClipboardList,
   FileText,
   MessageCircle,
@@ -72,10 +73,10 @@ export function QuickPatientActions({ patient }: { patient: Patient }) {
         ),
     },
     {
-      icon: <FileText className="h-4 w-4" />,
-      label: 'Rapport',
-      color: 'bg-mc-green-500/10 text-mc-green-500',
-      onClick: () => navigate('/nurse/reports'),
+      icon: <ClipboardPlus className="h-4 w-4" />,
+      label: 'Briefing',
+      color: 'bg-mc-blue-500/10 text-mc-blue-500',
+      onClick: () => navigate(`/nurse/briefing/${patient.id}`),
     },
   ];
 

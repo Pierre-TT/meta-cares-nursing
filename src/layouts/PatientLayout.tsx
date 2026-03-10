@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { Avatar } from '@/design-system';
+import { roleProfileRoutes, useAuthStore } from '@/stores/authStore';
 
 /* ── Bottom tabs ── */
 const tabs = [
@@ -25,6 +26,10 @@ const tabs = [
 export function PatientLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const profilePath = user ? roleProfileRoutes[user.role] : '/patient/profile';
+  const firstName = user?.firstName ?? 'Patient';
+  const lastName = user?.lastName ?? '';
 
   const isActive = (path: string) => {
     if (path === '/patient') return location.pathname === '/patient';
@@ -37,10 +42,10 @@ export function PatientLayout() {
       <header className="glass sticky top-0 z-30 border-b border-[var(--border-default)]">
         <div className="flex items-center justify-between h-14 px-4 max-w-lg mx-auto">
           <div className="flex items-center gap-3">
-            <Avatar name="Jean Dubois" size="sm" />
+            <Avatar src={user?.avatarUrl} name={`${firstName} ${lastName}`.trim()} size="sm" />
             <div>
               <h1 className="text-sm font-bold">
-                Bonjour <span className="text-gradient">Jean</span>
+                Bonjour <span className="text-gradient">{firstName}</span>
               </h1>
               <p className="text-[10px] text-[var(--text-muted)]">Katz B · INAMI couvert</p>
             </div>
@@ -55,7 +60,7 @@ export function PatientLayout() {
               <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-mc-red-500 ring-2 ring-[var(--bg-primary)]" />
             </button>
             <button
-              onClick={() => navigate('/patient/more')}
+              onClick={() => navigate(profilePath)}
               className="p-2 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors"
               aria-label="Paramètres"
             >

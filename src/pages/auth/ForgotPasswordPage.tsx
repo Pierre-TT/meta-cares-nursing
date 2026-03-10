@@ -66,6 +66,8 @@ export function ForgotPasswordPage() {
         <Input
           label="Email"
           type="email"
+          name="email"
+          autoComplete="email"
           placeholder="infirmier@example.be"
           icon={<Mail className="h-4 w-4" />}
           value={email}

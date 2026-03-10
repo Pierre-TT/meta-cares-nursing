@@ -1,25 +1,36 @@
-import { CheckCircle, AlertCircle, Wifi, RefreshCw, BarChart3, ShieldCheck, KeyRound, ServerCog } from 'lucide-react';
-import { Badge, Button, Card, CardHeader, CardTitle, AnimatedPage, GradientHeader } from '@/design-system';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  CheckCircle,
+  AlertCircle,
+  Wifi,
+  RefreshCw,
+  BarChart3,
+  ShieldCheck,
+  KeyRound,
+  ServerCog,
+} from 'lucide-react';
+import { Badge, Button, Card, CardHeader, CardTitle, AnimatedPage, GradientHeader, Modal } from '@/design-system';
 
 const services = [
   { name: 'eFact (facturation)', status: 'ok', latency: '120ms', lastCheck: '09:15', uptime: '99.8%' },
   { name: 'eAgreement (accords)', status: 'ok', latency: '95ms', lastCheck: '09:15', uptime: '99.5%' },
   { name: 'eAttest (attestations)', status: 'ok', latency: '110ms', lastCheck: '09:15', uptime: '99.7%' },
-  { name: 'MemberData (assurabilité)', status: 'ok', latency: '85ms', lastCheck: '09:15', uptime: '99.9%' },
-  { name: 'Chap IV (accords médicaments)', status: 'warning', latency: '340ms', lastCheck: '09:10', uptime: '97.2%' },
+  { name: 'MemberData (assurabilite)', status: 'ok', latency: '85ms', lastCheck: '09:15', uptime: '99.9%' },
+  { name: 'Chap IV (accords medicaments)', status: 'warning', latency: '340ms', lastCheck: '09:10', uptime: '97.2%' },
 ];
 
 const dependencyStatus = [
-  { name: 'Homologation production', state: 'approved', detail: 'Dossier validé le 12/01/2026' },
+  { name: 'Homologation production', state: 'approved', detail: 'Dossier valide le 12/01/2026' },
   { name: 'Certificat eHealth prod', state: 'expiring', detail: 'Expire le 25/03/2026' },
-  { name: 'Certificat test', state: 'ok', detail: 'Valide jusqu’au 18/12/2026' },
-  { name: 'Chaîne de confiance', state: 'ok', detail: 'Aucune alerte CRL/OCSP' },
+  { name: 'Certificat test', state: 'ok', detail: 'Valide jusqu au 18/12/2026' },
+  { name: 'Chaine de confiance', state: 'ok', detail: 'Aucune alerte CRL/OCSP' },
 ];
 
 const volumeStats = [
   { label: 'Transactions 24h', value: 1428, tone: 'blue' as const },
   { label: 'Rejets 24h', value: 11, tone: 'amber' as const },
-  { label: 'Échecs réseau', value: 2, tone: 'red' as const },
+  { label: 'Echecs reseau', value: 2, tone: 'red' as const },
   { label: 'Relances auto', value: 18, tone: 'green' as const },
 ];
 
@@ -30,18 +41,29 @@ const recentTransactions = [
   { type: 'eAgreement', direction: 'OUT', count: 1, status: 'pending', time: '08:45' },
 ];
 
+function buildRefreshLabel(date = new Date()) {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
 export function MyCareNetPage() {
+  const navigate = useNavigate();
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [errorsOpen, setErrorsOpen] = useState(false);
+  const flaggedTransactions = recentTransactions.filter((transaction) => !['accepted', 'ok'].includes(transaction.status));
+
   return (
     <AnimatedPage className="px-4 py-6 lg:px-8 max-w-5xl mx-auto space-y-4">
       <GradientHeader
         icon={<Wifi className="h-5 w-5" />}
-        title="MyCareNet & dépendances"
+        title="MyCareNet & dependances"
         subtitle="Supervision des flux, homologations et certificats"
-        badge={<Badge variant="green" dot>Opérationnel</Badge>}
+        badge={<Badge variant="green" dot>Operationnel</Badge>}
       >
         <div className="flex items-center justify-around mt-1">
           <div className="text-center">
-            <p className="text-lg font-bold text-white">{services.filter((s) => s.status === 'ok').length}/{services.length}</p>
+            <p className="text-lg font-bold text-white">{services.filter((service) => service.status === 'ok').length}/{services.length}</p>
             <p className="text-[10px] text-white/60">Services OK</p>
           </div>
           <div className="h-6 w-px bg-white/20" />
@@ -57,10 +79,19 @@ export function MyCareNetPage() {
         </div>
       </GradientHeader>
 
+      {feedback && (
+        <div role="status" className="flex items-center gap-2 p-3 rounded-xl bg-mc-blue-500/10 border border-mc-blue-500/20">
+          <CheckCircle className="h-4 w-4 text-mc-blue-500" />
+          <span className="text-sm font-medium">{feedback}</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {volumeStats.map((item) => (
           <Card key={item.label} className="text-center">
-            <p className={`text-2xl font-bold ${item.tone === 'blue' ? 'text-mc-blue-500' : item.tone === 'green' ? 'text-mc-green-500' : item.tone === 'red' ? 'text-mc-red-500' : 'text-mc-amber-500'}`}>{item.value}</p>
+            <p className={`text-2xl font-bold ${item.tone === 'blue' ? 'text-mc-blue-500' : item.tone === 'green' ? 'text-mc-green-500' : item.tone === 'red' ? 'text-mc-red-500' : 'text-mc-amber-500'}`}>
+              {item.value}
+            </p>
             <p className="text-[10px] text-[var(--text-muted)]">{item.label}</p>
           </Card>
         ))}
@@ -70,29 +101,40 @@ export function MyCareNetPage() {
         <div className="flex items-start gap-3">
           <KeyRound className="h-4 w-4 text-mc-amber-500 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-semibold">Fenêtre de renouvellement ouverte</p>
-            <p className="text-xs text-[var(--text-muted)]">Le certificat production et l’homologation associée doivent être revus avant la fin mars.</p>
+            <p className="text-sm font-semibold">Fenetre de renouvellement ouverte</p>
+            <p className="text-xs text-[var(--text-muted)]">
+              Le certificat production et l homologation associee doivent etre revus avant la fin mars.
+            </p>
           </div>
-          <Button variant="outline" size="sm">Préparer</Button>
+          <Button variant="outline" size="sm" onClick={() => navigate('/admin/certificates')}>
+            Preparer
+          </Button>
         </div>
       </Card>
 
       <div className="grid lg:grid-cols-2 gap-4">
         <Card>
-          <CardHeader><CardTitle>Services MyCareNet</CardTitle><Badge variant="green" dot>Opérationnel</Badge></CardHeader>
+          <CardHeader>
+            <CardTitle>Services MyCareNet</CardTitle>
+            <Badge variant="green" dot>Operationnel</Badge>
+          </CardHeader>
           <div className="space-y-3">
-            {services.map((s) => (
-              <div key={s.name} className="flex items-center justify-between py-1.5">
+            {services.map((service) => (
+              <div key={service.name} className="flex items-center justify-between py-1.5">
                 <div className="flex items-center gap-2">
-                  {s.status === 'ok' ? <CheckCircle className="h-4 w-4 text-mc-green-500" /> : <AlertCircle className="h-4 w-4 text-mc-amber-500" />}
+                  {service.status === 'ok' ? (
+                    <CheckCircle className="h-4 w-4 text-mc-green-500" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-mc-amber-500" />
+                  )}
                   <div>
-                    <span className="text-sm">{s.name}</span>
-                    <p className="text-[10px] text-[var(--text-muted)]">Dernier check {s.lastCheck}</p>
+                    <span className="text-sm">{service.name}</span>
+                    <p className="text-[10px] text-[var(--text-muted)]">Dernier check {service.lastCheck}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={s.status === 'ok' ? 'green' : 'amber'}>{s.latency}</Badge>
-                  <span className="text-xs text-[var(--text-muted)]">{s.uptime}</span>
+                  <Badge variant={service.status === 'ok' ? 'green' : 'amber'}>{service.latency}</Badge>
+                  <span className="text-xs text-[var(--text-muted)]">{service.uptime}</span>
                 </div>
               </div>
             ))}
@@ -100,19 +142,28 @@ export function MyCareNetPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Homologation & certificats</CardTitle><Badge variant="blue">Compliance</Badge></CardHeader>
+          <CardHeader>
+            <CardTitle>Homologation & certificats</CardTitle>
+            <Badge variant="blue">Compliance</Badge>
+          </CardHeader>
           <div className="space-y-3">
             {dependencyStatus.map((item) => (
               <div key={item.name} className="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-secondary)]">
                 <div className="flex items-center gap-2">
-                  {item.state === 'ok' ? <ShieldCheck className="h-4 w-4 text-mc-green-500" /> : item.state === 'approved' ? <ServerCog className="h-4 w-4 text-mc-blue-500" /> : <AlertCircle className="h-4 w-4 text-mc-amber-500" />}
+                  {item.state === 'ok' ? (
+                    <ShieldCheck className="h-4 w-4 text-mc-green-500" />
+                  ) : item.state === 'approved' ? (
+                    <ServerCog className="h-4 w-4 text-mc-blue-500" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-mc-amber-500" />
+                  )}
                   <div>
                     <p className="text-sm font-medium">{item.name}</p>
                     <p className="text-[10px] text-[var(--text-muted)]">{item.detail}</p>
                   </div>
                 </div>
                 <Badge variant={item.state === 'ok' ? 'green' : item.state === 'approved' ? 'blue' : 'amber'}>
-                  {item.state === 'ok' ? 'OK' : item.state === 'approved' ? 'Validé' : 'Expire'}
+                  {item.state === 'ok' ? 'OK' : item.state === 'approved' ? 'Valide' : 'Expire'}
                 </Badge>
               </div>
             ))}
@@ -121,18 +172,21 @@ export function MyCareNetPage() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Transactions récentes</CardTitle><Badge variant="outline">24h</Badge></CardHeader>
+        <CardHeader>
+          <CardTitle>Transactions recentes</CardTitle>
+          <Badge variant="outline">24h</Badge>
+        </CardHeader>
         <div className="space-y-2">
-          {recentTransactions.map((t, i) => (
-            <div key={i} className="flex items-center justify-between py-1.5 border-b border-[var(--border-subtle)] last:border-0 text-sm">
+          {recentTransactions.map((transaction, index) => (
+            <div key={`${transaction.type}-${index}`} className="flex items-center justify-between py-1.5 border-b border-[var(--border-subtle)] last:border-0 text-sm">
               <div className="flex items-center gap-2">
-                <Badge variant={t.direction === 'OUT' ? 'blue' : 'green'}>{t.direction}</Badge>
-                <span>{t.type}</span>
-                <span className="text-xs text-[var(--text-muted)]">×{t.count}</span>
+                <Badge variant={transaction.direction === 'OUT' ? 'blue' : 'green'}>{transaction.direction}</Badge>
+                <span>{transaction.type}</span>
+                <span className="text-xs text-[var(--text-muted)]">x{transaction.count}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs">{t.status}</span>
-                <span className="text-xs text-[var(--text-muted)]">{t.time}</span>
+                <span className="text-xs">{transaction.status}</span>
+                <span className="text-xs text-[var(--text-muted)]">{transaction.time}</span>
               </div>
             </div>
           ))}
@@ -140,9 +194,55 @@ export function MyCareNetPage() {
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
-        <Button variant="outline" className="justify-start"><RefreshCw className="h-4 w-4" />Rafraîchir les flux</Button>
-        <Button variant="gradient" className="justify-start"><BarChart3 className="h-4 w-4" />Voir les erreurs</Button>
+        <Button
+          variant="outline"
+          className="justify-start"
+          onClick={() => setFeedback(`Flux rafraichis a ${buildRefreshLabel()}.`)}
+        >
+          <RefreshCw className="h-4 w-4" />
+          Rafraichir les flux
+        </Button>
+        <Button variant="gradient" className="justify-start" onClick={() => setErrorsOpen(true)}>
+          <BarChart3 className="h-4 w-4" />
+          Voir les erreurs
+        </Button>
       </div>
+
+      <Modal open={errorsOpen} onClose={() => setErrorsOpen(false)} title="Erreurs & relances">
+        <div className="space-y-4">
+          <div className="space-y-3">
+            {flaggedTransactions.map((transaction) => (
+              <div key={`${transaction.type}-${transaction.time}`} className="p-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)]">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">{transaction.type}</p>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      {transaction.direction} · {transaction.status}
+                    </p>
+                  </div>
+                  <Badge variant={transaction.status.includes('rejected') ? 'amber' : 'blue'}>
+                    {transaction.time}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setErrorsOpen(false)}>
+              Fermer
+            </Button>
+            <Button
+              onClick={() => {
+                setErrorsOpen(false);
+                navigate('/admin/audit');
+              }}
+            >
+              Ouvrir audit
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </AnimatedPage>
   );
 }

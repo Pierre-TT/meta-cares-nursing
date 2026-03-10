@@ -1,74 +1,43 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { WifiOff, Cloud, RefreshCw } from 'lucide-react';
 import { Badge } from '@/design-system';
+import { useOfflineClinicalSync } from '@/hooks/useOfflineClinicalSync';
 
 export function OfflineIndicator() {
-  const [online, setOnline] = useState(navigator.onLine);
-  const [pendingSync, setPendingSync] = useState(0);
-  const [syncing, setSyncing] = useState(false);
-  const pendingSyncRef = useRef(pendingSync);
-  const timeoutRef = useRef<number | null>(null);
+  const { snapshot, flushWoundQueue, syncBelraiQueue, isSyncing } = useOfflineClinicalSync();
+  const { online, pendingCount } = snapshot;
+  const autoSyncKeyRef = useRef('');
 
   useEffect(() => {
-    pendingSyncRef.current = pendingSync;
-  }, [pendingSync]);
-
-  const clearSyncTimeout = useCallback(() => {
-    if (timeoutRef.current !== null) {
-      window.clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }, []);
-
-  const triggerSync = useCallback(() => {
-    if (pendingSyncRef.current === 0) {
+    if (!online || pendingCount === 0 || isSyncing) {
       return;
     }
 
-    clearSyncTimeout();
-    setSyncing(true);
-    timeoutRef.current = window.setTimeout(() => {
-      pendingSyncRef.current = 0;
-      setPendingSync(0);
-      setSyncing(false);
-      timeoutRef.current = null;
-    }, 2000);
-  }, [clearSyncTimeout]);
+    const autoSyncKey = `${online}-${pendingCount}`;
+    if (autoSyncKeyRef.current === autoSyncKey) {
+      return;
+    }
+
+    autoSyncKeyRef.current = autoSyncKey;
+
+    void flushWoundQueue().then(() => syncBelraiQueue());
+  }, [flushWoundQueue, isSyncing, online, pendingCount, syncBelraiQueue]);
 
   useEffect(() => {
-    const handleOnline = () => {
-      setOnline(true);
-      triggerSync();
-    };
-    const handleOffline = () => {
-      clearSyncTimeout();
-      setOnline(false);
-      setSyncing(false);
-      setPendingSync((p) => {
-        const nextPendingSync = p + 1;
-        pendingSyncRef.current = nextPendingSync;
-        return nextPendingSync;
-      });
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      clearSyncTimeout();
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [clearSyncTimeout, triggerSync]);
+    if (!online) {
+      autoSyncKeyRef.current = '';
+    }
+  }, [online]);
 
   // Don't show anything when online and nothing to sync
-  if (online && pendingSync === 0 && !syncing) return null;
+  if (online && pendingCount === 0 && !isSyncing) return null;
 
   return (
     <div
       className={`fixed top-0 left-0 right-0 z-50 px-4 py-2 flex items-center justify-between text-xs font-medium transition-colors ${
         !online
           ? 'bg-mc-amber-500 text-white'
-          : syncing
+          : isSyncing
             ? 'bg-mc-blue-500 text-white'
             : 'bg-mc-green-500 text-white'
       }`}
@@ -77,23 +46,23 @@ export function OfflineIndicator() {
         {!online ? (
           <>
             <WifiOff className="h-3.5 w-3.5" />
-            <span>Mode hors-ligne — Les données seront synchronisées automatiquement</span>
+            <span>Mode hors ligne - les brouillons BelRAI et plaies restent en file locale</span>
           </>
-        ) : syncing ? (
+        ) : isSyncing ? (
           <>
             <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-            <span>Synchronisation en cours…</span>
+            <span>Synchronisation clinique en cours...</span>
           </>
         ) : (
           <>
             <Cloud className="h-3.5 w-3.5" />
-            <span>Connexion rétablie</span>
+            <span>Connexion retablie</span>
           </>
         )}
       </div>
-      {pendingSync > 0 && (
+      {pendingCount > 0 && (
         <Badge variant="default" className="bg-white/20 text-white">
-          {pendingSync} en attente
+          {pendingCount} en attente
         </Badge>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { queueDataAccessLog } from '@/lib/dataAccess';
 import { mapPatientRecordToProfile } from '@/lib/platformData';
 import { mockPatients, type Patient } from '@/lib/patients';
 import { supabase } from '@/lib/supabase';
@@ -105,6 +106,18 @@ async function fetchNursePatients(): Promise<NursePatient[]> {
     patientRows.map((patient) => patient.id),
   );
 
+  queueDataAccessLog({
+    tableName: 'patients',
+    action: 'read',
+    resourceLabel: 'Liste des patients actifs',
+    containsPii: true,
+    severity: 'low',
+    metadata: {
+      scope: 'nurse-patient-list',
+      patientCount: patientRows.length,
+    },
+  });
+
   return patientRows.map((patient) =>
     toNursePatient(
       patient,
@@ -150,6 +163,20 @@ async function fetchNursePatient(routePatientId: string): Promise<NursePatient |
   }
 
   const { allergiesByPatientId, pathologiesByPatientId } = await fetchPatientRelations([patientRow.id]);
+
+  queueDataAccessLog({
+    tableName: 'patients',
+    action: 'read',
+    recordId: patientRow.id,
+    patientId: patientRow.id,
+    resourceLabel: 'Consultation d’un dossier patient',
+    containsPii: true,
+    severity: 'low',
+    metadata: {
+      scope: 'nurse-patient-detail',
+      routePatientId,
+    },
+  });
 
   return toNursePatient(
     patientRow,

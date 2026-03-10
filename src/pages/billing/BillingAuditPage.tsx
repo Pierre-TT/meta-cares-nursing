@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ShieldCheck, Search, Eye, Edit, Trash2, Download, Send, Lock, User, FileText } from 'lucide-react';
 import { Card, Badge, Input, AnimatedPage, GradientHeader, Tabs } from '@/design-system';
+import { maskNiss } from '@/lib/niss';
 
 type AuditAction = 'view' | 'edit' | 'delete' | 'export' | 'send' | 'login' | 'create';
 interface AuditEntry {
@@ -17,14 +18,14 @@ interface AuditEntry {
 
 const auditLog: AuditEntry[] = [
   { id: 'A001', timestamp: '2026-03-06 09:15:23', user: 'Marie Billing', role: 'Tarificatrice', action: 'send', resource: 'eFact LOT-2026-0089', details: 'Envoi lot eFact 24 prestations à MC (100)', ip: '192.168.1.45', sensitiveData: false },
-  { id: 'A002', timestamp: '2026-03-06 09:12:05', user: 'Marie Billing', role: 'Tarificatrice', action: 'view', resource: 'Patient Devos M-C', details: 'Consultation dossier patient NISS 52.01.15-123.45', ip: '192.168.1.45', sensitiveData: true },
+  { id: 'A002', timestamp: '2026-03-06 09:12:05', user: 'Marie Billing', role: 'Tarificatrice', action: 'view', resource: 'Patient Devos M-C', details: `Consultation dossier patient NISS ${maskNiss('52.01.15-123.45')}`, ip: '192.168.1.45', sensitiveData: true },
   { id: 'A003', timestamp: '2026-03-06 08:45:11', user: 'Admin System', role: 'Administrateur', action: 'export', resource: 'Rapport mensuel Fév 2026', details: 'Export CSV rapports financiers février 2026', ip: '192.168.1.10', sensitiveData: false },
   { id: 'A004', timestamp: '2026-03-05 17:30:42', user: 'Marie Billing', role: 'Tarificatrice', action: 'edit', resource: 'Prestation #P-4521', details: 'Correction code nomenclature 425132→425110', ip: '192.168.1.45', sensitiveData: false },
   { id: 'A005', timestamp: '2026-03-05 16:20:18', user: 'Sophie Dupont', role: 'Infirmière', action: 'view', resource: 'Accord AG-001', details: 'Consultation accord patient Devos', ip: '192.168.1.102', sensitiveData: true },
   { id: 'A006', timestamp: '2026-03-05 14:55:33', user: 'Marie Billing', role: 'Tarificatrice', action: 'create', resource: 'eFact LOT-2026-0090', details: 'Création nouveau lot eFact — 18 prestations', ip: '192.168.1.45', sensitiveData: false },
   { id: 'A007', timestamp: '2026-03-05 11:10:07', user: 'Admin System', role: 'Administrateur', action: 'delete', resource: 'Brouillon LOT-TMP-042', details: 'Suppression lot brouillon obsolète', ip: '192.168.1.10', sensitiveData: false },
   { id: 'A008', timestamp: '2026-03-05 08:00:01', user: 'Marie Billing', role: 'Tarificatrice', action: 'login', resource: 'Session', details: 'Connexion bureau tarification', ip: '192.168.1.45', sensitiveData: false },
-  { id: 'A009', timestamp: '2026-03-04 16:45:22', user: 'Marc Janssens', role: 'Infirmier', action: 'view', resource: 'Patient Lemaire J-P', details: 'Consultation dossier patient NISS 45.07.22-456.78', ip: '192.168.1.88', sensitiveData: true },
+  { id: 'A009', timestamp: '2026-03-04 16:45:22', user: 'Marc Janssens', role: 'Infirmier', action: 'view', resource: 'Patient Lemaire J-P', details: `Consultation dossier patient NISS ${maskNiss('45.07.22-456.78')}`, ip: '192.168.1.88', sensitiveData: true },
   { id: 'A010', timestamp: '2026-03-04 14:30:55', user: 'Marie Billing', role: 'Tarificatrice', action: 'send', resource: 'Relance Solidaris', details: 'Envoi relance paiement LOT-2026-0084', ip: '192.168.1.45', sensitiveData: false },
 ];
 

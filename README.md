@@ -1,73 +1,64 @@
-# React + TypeScript + Vite
+# Meta Cares Nursing
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Meta Cares Nursing is a Vite + React + Supabase application for Belgian home nursing operations. It includes nurse workflows, patient access, coordination, billing, consent tracking, BelRAI support, wound follow-up, and hourly pilot billing logic.
 
-Currently, two official plugins are available:
+## Current status
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+This repository is not a production-ready eHealth integration package on its own.
 
-## React Compiler
+The Welcome Pack audit completed on 2026-03-09 found that the codebase contains the right product areas, but production compliance still depends on:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- formal eHealth onboarding and approval evidence,
+- sector-specific connector validation for MyCareNet, eHealthBox, IAM/certificates, Vitalink, and related services,
+- removal of remaining mock or fallback behavior in several healthcare-facing screens,
+- alignment between the checked-in Supabase schema and the live Supabase project.
 
-## Expanding the ESLint configuration
+The detailed audit is tracked in [docs/welcome-pack-compliance-audit.md](C:\Users\taham\meta-cares-nursing\docs\welcome-pack-compliance-audit.md).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- React 19
+- TypeScript
+- Vite
+- Supabase
+- TanStack Query
+- Framer Motion
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Local development
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Install dependencies and run the app:
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Useful commands:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run lint
+npm test
+npm run build
 ```
+
+## Environment
+
+The frontend expects Supabase credentials in local environment variables:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Auth, RLS, and most clinical workflows depend on a live Supabase project with the matching migrations applied.
+
+## Compliance and healthcare scope
+
+The Welcome Pack and official Belgian healthcare references require more than UI coverage. Production rollout needs:
+
+- approved use of each eHealth service in scope,
+- legal basis and sector-committee alignment where applicable,
+- documented planning and technical architecture,
+- auditable access controls and patient data governance,
+- continuity arrangements and connector operations,
+- validated identity and certificate handling.
+
+This repository now includes a documented gap assessment, and the live Supabase project can be repaired with replayed module-specific migrations. The app still contains connector placeholders and mocked dashboards that must be replaced before claiming production compliance.

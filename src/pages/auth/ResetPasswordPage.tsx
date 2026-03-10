@@ -153,6 +153,8 @@ export function ResetPasswordPage() {
         <Input
           label="Nouveau mot de passe"
           type="password"
+          name="newPassword"
+          autoComplete="new-password"
           placeholder="Min. 8 caractères"
           icon={<Lock className="h-4 w-4" />}
           value={password}
@@ -164,6 +166,8 @@ export function ResetPasswordPage() {
         <Input
           label="Confirmer le mot de passe"
           type="password"
+          name="confirmPassword"
+          autoComplete="new-password"
           placeholder="••••••••"
           icon={<Lock className="h-4 w-4" />}
           value={confirmPassword}

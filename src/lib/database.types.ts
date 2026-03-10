@@ -594,6 +594,72 @@ export type Database = {
         }
         Relationships: []
       }
+      data_access_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_role: Database["public"]["Enums"]["user_role"] | null
+          contains_pii: boolean
+          created_at: string
+          id: string
+          ip_hint: string | null
+          metadata: Json
+          patient_id: string | null
+          record_id: string | null
+          resource_label: string
+          severity: string
+          system_generated: boolean
+          table_name: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_role?: Database["public"]["Enums"]["user_role"] | null
+          contains_pii?: boolean
+          created_at?: string
+          id?: string
+          ip_hint?: string | null
+          metadata?: Json
+          patient_id?: string | null
+          record_id?: string | null
+          resource_label?: string
+          severity?: string
+          system_generated?: boolean
+          table_name: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_role?: Database["public"]["Enums"]["user_role"] | null
+          contains_pii?: boolean
+          created_at?: string
+          id?: string
+          ip_hint?: string | null
+          metadata?: Json
+          patient_id?: string | null
+          record_id?: string | null
+          resource_label?: string
+          severity?: string
+          system_generated?: boolean
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_access_logs_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_access_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eagreement_requests: {
         Row: {
           belrai_assessment_id: string | null
@@ -867,6 +933,53 @@ export type Database = {
             columns: ["episode_id"]
             isOneToOne: false
             referencedRelation: "had_episodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehealth_consent_sync_logs: {
+        Row: {
+          created_at: string
+          error_detail: string | null
+          id: string
+          patient_id: string
+          payload: Json
+          response_code: string | null
+          source: string
+          status: string
+          sync_type: string
+          synced_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_detail?: string | null
+          id?: string
+          patient_id: string
+          payload?: Json
+          response_code?: string | null
+          source?: string
+          status?: string
+          sync_type?: string
+          synced_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_detail?: string | null
+          id?: string
+          patient_id?: string
+          payload?: Json
+          response_code?: string | null
+          source?: string
+          status?: string
+          sync_type?: string
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehealth_consent_sync_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
             referencedColumns: ["id"]
           },
         ]
@@ -2015,6 +2128,8 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bce_number: string | null
+          company_name: string | null
           created_at: string
           email: string
           first_name: string
@@ -2023,11 +2138,18 @@ export type Database = {
           last_name: string
           metadata: Json
           phone: string | null
+          professional_city: string | null
+          professional_house_number: string | null
+          professional_postal_code: string | null
+          professional_status: Database["public"]["Enums"]["professional_status"] | null
+          professional_street: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
+          bce_number?: string | null
+          company_name?: string | null
           created_at?: string
           email: string
           first_name?: string
@@ -2036,11 +2158,18 @@ export type Database = {
           last_name?: string
           metadata?: Json
           phone?: string | null
+          professional_city?: string | null
+          professional_house_number?: string | null
+          professional_postal_code?: string | null
+          professional_status?: Database["public"]["Enums"]["professional_status"] | null
+          professional_street?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
+          bce_number?: string | null
+          company_name?: string | null
           created_at?: string
           email?: string
           first_name?: string
@@ -2049,6 +2178,11 @@ export type Database = {
           last_name?: string
           metadata?: Json
           phone?: string | null
+          professional_city?: string | null
+          professional_house_number?: string | null
+          professional_postal_code?: string | null
+          professional_status?: Database["public"]["Enums"]["professional_status"] | null
+          professional_street?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
@@ -2599,6 +2733,21 @@ export type Database = {
         Args: { target_patient_id: string }
         Returns: boolean
       }
+      log_data_access: {
+        Args: {
+          p_action?: string
+          p_contains_pii?: boolean
+          p_ip_hint?: string | null
+          p_metadata?: Json
+          p_patient_id?: string | null
+          p_record_id?: string | null
+          p_resource_label?: string | null
+          p_severity?: string
+          p_system_generated?: boolean
+          p_table_name: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       belrai_assessment_status:
@@ -2669,6 +2818,10 @@ export type Database = {
         | "other"
       katz_category: "O" | "A" | "B" | "C" | "Cd"
       patient_gender: "M" | "F" | "X"
+      professional_status:
+        | "independant"
+        | "independant_complementaire"
+        | "salarie"
       user_role:
         | "nurse"
         | "coordinator"
@@ -2845,6 +2998,7 @@ export const Constants = {
       ],
       katz_category: ["O", "A", "B", "C", "Cd"],
       patient_gender: ["M", "F", "X"],
+      professional_status: ["independant", "independant_complementaire", "salarie"],
       user_role: ["nurse", "coordinator", "patient", "admin", "billing_office"],
       visit_status: ["planned", "in_progress", "completed", "cancelled"],
     },

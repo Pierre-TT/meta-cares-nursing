@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Database } from '@/lib/database.types';
+import { queueDataAccessLog } from '@/lib/dataAccess';
 import {
   emptyPlatformSnapshot,
   formatTimeValue,
@@ -171,6 +172,20 @@ async function loadPatientHome(user: User): Promise<PlatformSnapshot['patient']>
     throw vitalsResult.error;
   }
 
+  queueDataAccessLog({
+    tableName: 'patients',
+    action: 'read',
+    recordId: patient.id,
+    patientId: patient.id,
+    resourceLabel: 'Chargement du portail patient',
+    containsPii: true,
+    severity: 'low',
+    metadata: {
+      scope: 'patient-home',
+      profileId: user.id,
+    },
+  });
+
   return {
     profile: mapPatientRecordToProfile(
       patient,
@@ -217,6 +232,7 @@ export function usePlatformData() {
       user?.role === 'patient'
         ? { ...emptyPlatformSnapshot, patient: createFallbackPatientHome(user) }
         : emptyPlatformSnapshot,
+    initialDataUpdatedAt: 0,
     queryFn: async () => {
       if (!user) {
         return emptyPlatformSnapshot;

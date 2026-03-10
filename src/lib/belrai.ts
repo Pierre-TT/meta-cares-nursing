@@ -138,6 +138,7 @@ export interface BelraiTwinSnapshot {
 }
 
 const belraiStoragePrefix = 'mc-belrai-draft:';
+const offlineClinicalQueueEvent = 'mc-offline-clinical-queue';
 const dateFormatter = new Intl.DateTimeFormat('fr-BE', {
   day: '2-digit',
   month: '2-digit',
@@ -774,6 +775,41 @@ export function loadStoredBelraiDraft(patientId: string): StoredBelraiDraft {
   }
 }
 
+function notifyOfflineClinicalQueueChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(offlineClinicalQueueEvent));
+  }
+}
+
+export function isBelraiDraftPendingSync(draft: Pick<StoredBelraiDraft, 'status' | 'syncStatus'>) {
+  return (
+    draft.status === 'ready_for_sync' ||
+    draft.syncStatus === 'queued' ||
+    draft.syncStatus === 'processing' ||
+    draft.syncStatus === 'error'
+  );
+}
+
+export function listStoredBelraiDrafts() {
+  if (typeof localStorage === 'undefined') {
+    return [] as StoredBelraiDraft[];
+  }
+
+  const drafts: StoredBelraiDraft[] = [];
+
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+
+    if (!key?.startsWith(belraiStoragePrefix)) {
+      continue;
+    }
+
+    drafts.push(loadStoredBelraiDraft(key.slice(belraiStoragePrefix.length)));
+  }
+
+  return drafts.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
 export function persistBelraiDraft(
   patientId: string,
   draft: StoredBelraiDraft,
@@ -787,6 +823,7 @@ export function persistBelraiDraft(
 
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem(`${belraiStoragePrefix}${patientId}`, JSON.stringify(nextDraft));
+    notifyOfflineClinicalQueueChanged();
   }
 
   return nextDraft;
@@ -806,6 +843,7 @@ export function resetBelraiDraft(patientId: string): StoredBelraiDraft {
 
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem(`${belraiStoragePrefix}${patientId}`, JSON.stringify(nextDraft));
+    notifyOfflineClinicalQueueChanged();
   }
 
   return nextDraft;

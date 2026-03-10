@@ -1,5 +1,6 @@
 import { addDays, startOfDay } from 'date-fns';
 import type { Json, Tables, TablesInsert, TablesUpdate } from '@/lib/database.types';
+import { queueDataAccessLog } from '@/lib/dataAccess';
 import {
   buildHourlyPilotVisitComputation,
   estimateForfaitAmount,
@@ -283,6 +284,16 @@ export interface CreateNurseWoundAssessmentInput {
   notes?: string | null;
   metadata?: Json;
   recordedAt?: string;
+}
+
+/**
+ * Detects PostgREST errors caused by missing tables or unresolved foreign-key
+ * relationships.  Both happen when Supabase migrations haven't been applied yet.
+ *   - 42P01: undefined_table  (table doesn't exist → HTTP 404)
+ *   - PGRST200: could not find relationship in schema cache (HTTP 400)
+ */
+function isSchemaError(error: { code?: string } | null | undefined): boolean {
+  return error?.code === '42P01' || error?.code === 'PGRST200';
 }
 
 function getDayBounds(date = new Date()) {
@@ -663,6 +674,9 @@ async function getVisitById(visitId: string) {
     .maybeSingle();
 
   if (error) {
+    if (isSchemaError(error)) {
+      return null;
+    }
     throw error;
   }
 
@@ -680,10 +694,29 @@ export async function listNurseVisitSummaries(patientId: string, limit?: number)
     : await query;
 
   if (error) {
+    if (isSchemaError(error)) {
+      return [];
+    }
     throw error;
   }
 
-  return (data ?? []).map((row) => mapVisitSummary(row as VisitSelectRow));
+  const summaries = (data ?? []).map((row) => mapVisitSummary(row as VisitSelectRow));
+
+  queueDataAccessLog({
+    tableName: 'visits',
+    action: 'read',
+    patientId,
+    resourceLabel: 'Historique des visites infirmières',
+    containsPii: true,
+    severity: 'low',
+    metadata: {
+      scope: 'nurse-visit-history',
+      visitCount: summaries.length,
+      limit: limit ?? null,
+    },
+  });
+
+  return summaries;
 }
 
 async function getLatestVisitByPatientId(patientId: string) {
@@ -696,6 +729,9 @@ async function getLatestVisitByPatientId(patientId: string) {
     .maybeSingle();
 
   if (error) {
+    if (isSchemaError(error)) {
+      return null;
+    }
     throw error;
   }
 
@@ -954,10 +990,41 @@ export async function getNurseVisitSummary(patientId: string, visitId?: string) 
     const visit = await getVisitById(visitId);
 
     if (visit && visit.patientId === patientId) {
+      queueDataAccessLog({
+        tableName: 'visits',
+        action: 'read',
+        recordId: visit.id,
+        patientId,
+        resourceLabel: 'Consultation du résumé de visite',
+        containsPii: true,
+        severity: 'low',
+        metadata: {
+          scope: 'nurse-visit-summary',
+          explicitVisitId: true,
+        },
+      });
       return visit;
     }
   }
+  const latestVisit = await getLatestVisitByPatientId(patientId);
 
+  if (latestVisit) {
+    queueDataAccessLog({
+      tableName: 'visits',
+      action: 'read',
+      recordId: latestVisit.id,
+      patientId,
+      resourceLabel: 'Consultation du dernier résumé de visite',
+      containsPii: true,
+      severity: 'low',
+      metadata: {
+        scope: 'nurse-visit-summary',
+        explicitVisitId: false,
+      },
+    });
+  }
+
+  return latestVisit;
   return getLatestVisitByPatientId(patientId);
 }
 
@@ -1104,6 +1171,9 @@ export async function listNurseWoundAssessments(patientId: string) {
     .order('recorded_at', { ascending: false });
 
   if (error) {
+    if (isSchemaError(error)) {
+      return [];
+    }
     throw error;
   }
 

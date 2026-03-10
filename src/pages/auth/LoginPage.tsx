@@ -69,6 +69,8 @@ export function LoginPage() {
         <Input
           label="Email"
           type="email"
+          name="email"
+          autoComplete="email"
           placeholder="infirmier@example.be"
           icon={<Mail className="h-4 w-4" />}
           value={email}
@@ -78,6 +80,8 @@ export function LoginPage() {
         <Input
           label="Mot de passe"
           type="password"
+          name="password"
+          autoComplete="current-password"
           placeholder="••••••••"
           icon={<Lock className="h-4 w-4" />}
           value={password}

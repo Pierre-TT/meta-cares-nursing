@@ -11,11 +11,12 @@ import {
   BarChart3,
   Map,
   Settings,
+  UserRound,
   LogOut,
   HeartPulse,
 } from 'lucide-react';
 import { AnimatedPage, GradientHeader } from '@/design-system';
-import { useAuthStore } from '@/stores/authStore';
+import { roleProfileRoutes, useAuthStore } from '@/stores/authStore';
 
 const sections = [
   {
@@ -44,11 +45,19 @@ const sections = [
       { path: '/coordinator/continuity', icon: GitBranch, label: 'Continuité', color: 'bg-purple-50 dark:bg-purple-900/30 text-purple-500' },
     ],
   },
+  {
+    title: 'Compte',
+    items: [
+      { path: '/coordinator/profile', icon: UserRound, label: 'Mon profil', color: 'bg-mc-blue-50 dark:bg-mc-blue-900/30 text-mc-blue-500' },
+    ],
+  },
 ];
 
 export function CoordinatorMorePage() {
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
+  const user = useAuthStore((s) => s.user);
+  const profilePath = user ? roleProfileRoutes[user.role] : '/coordinator/profile';
 
   return (
     <AnimatedPage className="px-4 py-6 lg:px-8 max-w-lg mx-auto space-y-5">
@@ -65,7 +74,7 @@ export function CoordinatorMorePage() {
             {section.items.map(item => (
               <button
                 key={item.path}
-                onClick={() => navigate(item.path)}
+                onClick={() => navigate(item.path === '/coordinator/profile' ? profilePath : item.path)}
                 className="relative flex flex-col items-center gap-2 p-4 rounded-2xl bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
               >
                 <div className={`h-11 w-11 rounded-xl flex items-center justify-center ${item.color}`}>

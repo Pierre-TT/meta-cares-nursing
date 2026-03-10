@@ -1,12 +1,54 @@
-import { Siren, AlertTriangle, Shield, Clock3, FileText, CheckCircle, Users, Bell } from 'lucide-react';
-import { Badge, Button, Card, CardHeader, CardTitle, AnimatedPage, GradientHeader } from '@/design-system';
+import { useState } from 'react';
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle,
+  Clock3,
+  FileText,
+  Shield,
+  Siren,
+  Users,
+} from 'lucide-react';
+import {
+  AnimatedPage,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  CardTitle,
+  GradientHeader,
+  Modal,
+} from '@/design-system';
 import { useAdminPlatformData } from '@/hooks/usePlatformData';
 
 export function IncidentResponsePage() {
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [runbookOpen, setRunbookOpen] = useState(false);
+  const [tabletopQueuedAt, setTabletopQueuedAt] = useState<string | null>(null);
   const { data } = useAdminPlatformData();
   const incidents = data.incidents.active;
-  const nearestDeadline = incidents.length > 0 ? Math.min(...incidents.map((incident) => Number.parseInt(incident.deadline, 10))) : 0;
+  const nearestDeadline =
+    incidents.length > 0
+      ? Math.min(...incidents.map((incident) => Number.parseInt(incident.deadline, 10)))
+      : 0;
   const apdReviewCount = incidents.filter((incident) => incident.apd).length;
+  const nextWorkflowStep = data.incidents.workflow.find((step) => step.state !== 'done') ?? null;
+
+  function handleOpenRunbook() {
+    setRunbookOpen(true);
+    setFeedback('Runbook 72h ouvert.');
+  }
+
+  function handleLaunchTabletop() {
+    const queuedAt = new Date().toLocaleTimeString('fr-BE', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    setTabletopQueuedAt(queuedAt);
+    setFeedback('Exercice table-top ajoute a la file de preparation.');
+  }
+
   return (
     <AnimatedPage className="px-4 py-6 lg:px-8 max-w-5xl mx-auto space-y-4">
       <GradientHeader
@@ -23,15 +65,38 @@ export function IncidentResponsePage() {
           <div className="h-6 w-px bg-white/20" />
           <div className="text-center">
             <p className="text-lg font-bold text-white">{nearestDeadline}h</p>
-            <p className="text-[10px] text-white/60">Échéance la plus proche</p>
+            <p className="text-[10px] text-white/60">Echeance la plus proche</p>
           </div>
           <div className="h-6 w-px bg-white/20" />
           <div className="text-center">
             <p className="text-lg font-bold text-white">{apdReviewCount}</p>
-            <p className="text-[10px] text-white/60">Pré-notification APD</p>
+            <p className="text-[10px] text-white/60">Pre-notification APD</p>
           </div>
         </div>
       </GradientHeader>
+
+      {feedback && (
+        <div role="status" className="flex items-center gap-2 p-3 rounded-xl bg-mc-blue-500/10 border border-mc-blue-500/20">
+          <CheckCircle className="h-4 w-4 text-mc-blue-500" />
+          <span className="text-sm font-medium">{feedback}</span>
+        </div>
+      )}
+
+      {tabletopQueuedAt && (
+        <Card className="border-l-4 border-l-mc-blue-500">
+          <div className="flex items-start gap-3">
+            <Siren className="h-4 w-4 text-mc-blue-500 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold">Table-top en preparation</p>
+              <p className="text-xs text-[var(--text-muted)]">
+                File a {tabletopQueuedAt}.{' '}
+                {nextWorkflowStep ? `Prochaine etape: ${nextWorkflowStep.step}.` : 'Aucune etape restante.'}
+              </p>
+            </div>
+            <Badge variant="blue">En file</Badge>
+          </div>
+        </Card>
+      )}
 
       <Card className="border-l-4 border-l-mc-red-500">
         <div className="flex items-start gap-3">
@@ -70,7 +135,9 @@ export function IncidentResponsePage() {
                 </div>
                 <div className="flex items-center justify-between mt-3 text-xs">
                   <span className="text-[var(--text-muted)]">{incident.deadline}</span>
-                  <Badge variant={incident.apd ? 'red' : 'amber'}>{incident.apd ? 'APD en revue' : 'DPO only'}</Badge>
+                  <Badge variant={incident.apd ? 'red' : 'amber'}>
+                    {incident.apd ? 'APD en revue' : 'DPO only'}
+                  </Badge>
                 </div>
               </div>
             ))}
@@ -79,7 +146,7 @@ export function IncidentResponsePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Workflow réglementaire</CardTitle>
+            <CardTitle>Workflow reglementaire</CardTitle>
             <Badge variant="blue">DPO runbook</Badge>
           </CardHeader>
           <div className="space-y-3">
@@ -87,11 +154,17 @@ export function IncidentResponsePage() {
               <div key={step.step} className="p-3 rounded-xl bg-[var(--bg-secondary)]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    {step.state === 'done' ? <CheckCircle className="h-4 w-4 text-mc-green-500" /> : step.state === 'active' ? <Clock3 className="h-4 w-4 text-mc-amber-500" /> : <Shield className="h-4 w-4 text-mc-blue-500" />}
+                    {step.state === 'done' ? (
+                      <CheckCircle className="h-4 w-4 text-mc-green-500" />
+                    ) : step.state === 'active' ? (
+                      <Clock3 className="h-4 w-4 text-mc-amber-500" />
+                    ) : (
+                      <Shield className="h-4 w-4 text-mc-blue-500" />
+                    )}
                     <p className="text-sm font-medium">{step.step}</p>
                   </div>
                   <Badge variant={step.state === 'done' ? 'green' : step.state === 'active' ? 'amber' : 'outline'}>
-                    {step.state === 'done' ? 'Fait' : step.state === 'active' ? 'En cours' : 'À lancer'}
+                    {step.state === 'done' ? 'Fait' : step.state === 'active' ? 'En cours' : 'A lancer'}
                   </Badge>
                 </div>
                 <p className="text-xs text-[var(--text-muted)] mt-1">{step.detail}</p>
@@ -109,7 +182,10 @@ export function IncidentResponsePage() {
           </CardHeader>
           <div className="space-y-2">
             {data.incidents.exercises.map((exercise) => (
-              <div key={exercise.name} className="flex items-center justify-between py-2 border-b border-[var(--border-subtle)] last:border-0">
+              <div
+                key={exercise.name}
+                className="flex items-center justify-between py-2 border-b border-[var(--border-subtle)] last:border-0"
+              >
                 <div className="flex items-center gap-3">
                   <Users className="h-4 w-4 text-mc-blue-500" />
                   <div>
@@ -119,7 +195,7 @@ export function IncidentResponsePage() {
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <Badge variant={exercise.status === 'ok' ? 'green' : 'amber'}>
-                    {exercise.status === 'ok' ? 'Validé' : 'À corriger'}
+                    {exercise.status === 'ok' ? 'Valide' : 'A corriger'}
                   </Badge>
                   <span className="text-[10px] text-[var(--text-muted)]">{exercise.result}</span>
                 </div>
@@ -151,15 +227,66 @@ export function IncidentResponsePage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Button variant="outline" className="justify-start">
+        <Button variant="outline" className="justify-start" onClick={handleOpenRunbook}>
           <FileText className="h-4 w-4" />
           Ouvrir runbook 72h
         </Button>
-        <Button variant="gradient" className="justify-start">
+        <Button variant="gradient" className="justify-start" onClick={handleLaunchTabletop}>
           <Siren className="h-4 w-4" />
           Lancer exercice table-top
         </Button>
       </div>
+
+      <Modal open={runbookOpen} onClose={() => setRunbookOpen(false)} title="Runbook 72h">
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Checklist immediate pour containment, evaluation APD et conservation des preuves.
+          </p>
+
+          <div className="space-y-3">
+            {data.incidents.workflow.map((step) => (
+              <div
+                key={step.step}
+                className="p-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium">{step.step}</p>
+                  <Badge variant={step.state === 'done' ? 'green' : step.state === 'active' ? 'amber' : 'outline'}>
+                    {step.state === 'done' ? 'Fait' : step.state === 'active' ? 'En cours' : 'A lancer'}
+                  </Badge>
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mt-1">{step.detail}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">Cas actifs</p>
+            {incidents.map((incident) => (
+              <div
+                key={incident.title}
+                className="p-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">{incident.title}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{incident.owner}</p>
+                  </div>
+                  <Badge variant={incident.apd ? 'red' : 'amber'}>
+                    {incident.apd ? 'APD' : incident.deadline}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setRunbookOpen(false)}>
+              Fermer
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </AnimatedPage>
   );
 }

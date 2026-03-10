@@ -1,5 +1,6 @@
 import { endOfDay, startOfDay, subDays } from 'date-fns';
 import type { Tables } from '@/lib/database.types';
+import { queueDataAccessLog } from '@/lib/dataAccess';
 import {
   HOURLY_PILOT_HOME_CARE_RATE,
   estimateForfaitAmount,
@@ -21,6 +22,10 @@ type HourlyComparisonVisitRow = Pick<Tables<'visits'>, 'id' | 'scheduled_start'>
 
 type HourlyAdminSummaryRow = Tables<'visit_hourly_billing_summaries'>;
 type HourlyAdminLineRow = Pick<Tables<'visit_hourly_billing_lines'>, 'code'>;
+
+function isMissingHourlyPilotSchemaArtifact(error: { code?: string | null } | null | undefined) {
+  return error?.code === '42P01' || error?.code === 'PGRST200' || error?.code === 'PGRST205';
+}
 
 function normalizeToSingleRow<T>(value: T | T[] | null | undefined) {
   if (!value) {
@@ -102,6 +107,7 @@ export interface HourlyPilotPlaceOverview {
 }
 
 export interface HourlyPilotAdminOverview {
+  schemaAvailable: boolean;
   totalVisits: number;
   totalBillableHours: number;
   hourlyAmount: number;
@@ -113,6 +119,23 @@ export interface HourlyPilotAdminOverview {
   activePseudocodeCount: number;
   placeBreakdown: HourlyPilotPlaceOverview[];
   catalog: HourlyPilotCatalogEntry[];
+}
+
+function createEmptyHourlyPilotAdminOverview(schemaAvailable: boolean): HourlyPilotAdminOverview {
+  return {
+    schemaAvailable,
+    totalVisits: 0,
+    totalBillableHours: 0,
+    hourlyAmount: 0,
+    forfaitAmount: 0,
+    deltaAmount: 0,
+    readyRate: 0,
+    reviewCount: 0,
+    avgGeofencingCoverage: undefined,
+    activePseudocodeCount: 0,
+    placeBreakdown: [],
+    catalog: hourlyPilotCatalog,
+  };
 }
 
 export async function getNurseHourlyPilotWeekComparison(
@@ -181,6 +204,20 @@ export async function getNurseHourlyPilotWeekComparison(
   }
 
   const rows = (data ?? []) as HourlyComparisonVisitRow[];
+
+  queueDataAccessLog({
+    tableName: 'visit_hourly_billing_summaries',
+    action: 'read',
+    resourceLabel: 'Comparatif hebdomadaire du pilote horaire',
+    containsPii: true,
+    severity: 'low',
+    metadata: {
+      scope: 'nurse-hourly-pilot-week-comparison',
+      nurseId,
+      visitCount: rows.length,
+      days,
+    },
+  });
   const geofencingCoverage: number[] = [];
   const previewCodes = new Set<string>();
   const katzAccumulator = new Map<string, HourlyPilotKatzAccumulatorRow>();
@@ -315,6 +352,13 @@ export async function getHourlyPilotAdminOverview(): Promise<HourlyPilotAdminOve
       .select('code'),
   ]);
 
+  if (
+    isMissingHourlyPilotSchemaArtifact(summariesError) ||
+    isMissingHourlyPilotSchemaArtifact(linesError)
+  ) {
+    return createEmptyHourlyPilotAdminOverview(false);
+  }
+
   if (summariesError) {
     throw summariesError;
   }
@@ -325,6 +369,19 @@ export async function getHourlyPilotAdminOverview(): Promise<HourlyPilotAdminOve
 
   const summaryRows = (summaries ?? []) as HourlyAdminSummaryRow[];
   const lineRows = (lines ?? []) as HourlyAdminLineRow[];
+
+  queueDataAccessLog({
+    tableName: 'visit_hourly_billing_summaries',
+    action: 'read',
+    resourceLabel: 'Vue admin du pilote horaire',
+    containsPii: true,
+    severity: 'low',
+    metadata: {
+      scope: 'admin-hourly-pilot-overview',
+      summaryCount: summaryRows.length,
+      lineCount: lineRows.length,
+    },
+  });
   const coverage = summaryRows
     .map((row) => row.geofencing_coverage_ratio)
     .filter((value): value is number => typeof value === 'number');
@@ -364,6 +421,7 @@ export async function getHourlyPilotAdminOverview(): Promise<HourlyPilotAdminOve
   const activePseudocodeCount = new Set(lineRows.map((row) => row.code)).size;
 
   return {
+    schemaAvailable: true,
     totalVisits,
     totalBillableHours,
     hourlyAmount,

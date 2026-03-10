@@ -16,9 +16,19 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+*.iml
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Local tooling and generated outputs
+.codex/
+.playwright-cli/
+output/
+tmp/
+supabase/.temp/
+output-vite.err
+output-vite.log

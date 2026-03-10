@@ -1,5 +1,15 @@
-import { KeyRound, ShieldCheck, AlertCircle, ServerCog, Clock3, CheckCircle, RefreshCw } from 'lucide-react';
-import { Badge, Button, Card, CardHeader, CardTitle, AnimatedPage, GradientHeader } from '@/design-system';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  KeyRound,
+  ShieldCheck,
+  AlertCircle,
+  ServerCog,
+  Clock3,
+  CheckCircle,
+  RefreshCw,
+} from 'lucide-react';
+import { Badge, Button, Card, CardHeader, CardTitle, AnimatedPage, GradientHeader, Modal } from '@/design-system';
 import { useAdminPlatformData } from '@/hooks/usePlatformData';
 
 function daysUntil(date: string) {
@@ -11,14 +21,20 @@ function daysUntil(date: string) {
 }
 
 export function CertificatesPage() {
+  const navigate = useNavigate();
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [renewalOpen, setRenewalOpen] = useState(false);
   const { data } = useAdminPlatformData();
   const certificates = data.certificates.inventory;
   const trustChecks = data.certificates.trustChecks;
   const approvals = data.certificates.approvals;
   const renewalsSoon = certificates.filter((certificate) => certificate.status !== 'ok').length;
   const approvedCount = approvals.filter((approval) => approval.status === 'approved').length;
-  const nextRenewal = certificates.find((certificate) => certificate.status === 'expiring') ?? certificates.find((certificate) => certificate.status === 'warning');
+  const nextRenewal =
+    certificates.find((certificate) => certificate.status === 'expiring') ??
+    certificates.find((certificate) => certificate.status === 'warning');
   const renewalCountdown = nextRenewal ? daysUntil(nextRenewal.expires) : null;
+
   return (
     <AnimatedPage className="px-4 py-6 lg:px-8 max-w-5xl mx-auto space-y-4">
       <GradientHeader
@@ -45,11 +61,18 @@ export function CertificatesPage() {
         </div>
       </GradientHeader>
 
+      {feedback && (
+        <div role="status" className="flex items-center gap-2 p-3 rounded-xl bg-mc-blue-500/10 border border-mc-blue-500/20">
+          <CheckCircle className="h-4 w-4 text-mc-blue-500" />
+          <span className="text-sm font-medium">{feedback}</span>
+        </div>
+      )}
+
       <Card className="border-l-4 border-l-mc-amber-500">
         <div className="flex items-start gap-3">
           <AlertCircle className="h-4 w-4 text-mc-amber-500 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-semibold">Fenêtre de renouvellement ouverte</p>
+            <p className="text-sm font-semibold">Fenetre de renouvellement ouverte</p>
             <p className="text-xs text-[var(--text-muted)]">{data.certificates.renewalNotice}</p>
           </div>
           <Badge variant="amber">{renewalCountdown !== null ? `J-${renewalCountdown}` : 'Stable'}</Badge>
@@ -67,7 +90,13 @@ export function CertificatesPage() {
               <div key={certificate.name} className="p-3 rounded-xl bg-[var(--bg-secondary)]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-start gap-3">
-                    {certificate.status === 'ok' ? <ShieldCheck className="h-4 w-4 text-mc-green-500 mt-0.5" /> : certificate.status === 'warning' ? <Clock3 className="h-4 w-4 text-mc-amber-500 mt-0.5" /> : <AlertCircle className="h-4 w-4 text-mc-red-500 mt-0.5" />}
+                    {certificate.status === 'ok' ? (
+                      <ShieldCheck className="h-4 w-4 text-mc-green-500 mt-0.5" />
+                    ) : certificate.status === 'warning' ? (
+                      <Clock3 className="h-4 w-4 text-mc-amber-500 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-mc-red-500 mt-0.5" />
+                    )}
                     <div>
                       <p className="text-sm font-medium">{certificate.name}</p>
                       <p className="text-xs text-[var(--text-muted)]">{certificate.usage}</p>
@@ -86,14 +115,18 @@ export function CertificatesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Chaîne de confiance</CardTitle>
+            <CardTitle>Chaine de confiance</CardTitle>
             <Badge variant="green">Monitoring</Badge>
           </CardHeader>
           <div className="space-y-2">
             {trustChecks.map((check) => (
               <div key={check.label} className="flex items-center justify-between py-2 border-b border-[var(--border-subtle)] last:border-0">
                 <div className="flex items-center gap-3">
-                  {check.state === 'ok' ? <CheckCircle className="h-4 w-4 text-mc-green-500" /> : <AlertCircle className="h-4 w-4 text-mc-amber-500" />}
+                  {check.state === 'ok' ? (
+                    <CheckCircle className="h-4 w-4 text-mc-green-500" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-mc-amber-500" />
+                  )}
                   <div>
                     <p className="text-sm font-medium">{check.label}</p>
                     <p className="text-xs text-[var(--text-muted)]">{check.detail}</p>
@@ -110,7 +143,7 @@ export function CertificatesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>États d’homologation</CardTitle>
+          <CardTitle>Etats d homologation</CardTitle>
           <Badge variant="outline">Prod & test</Badge>
         </CardHeader>
         <div className="space-y-3">
@@ -124,7 +157,7 @@ export function CertificatesPage() {
                 </div>
               </div>
               <Badge variant={approval.status === 'approved' ? 'green' : 'amber'}>
-                {approval.status === 'approved' ? 'Validé' : 'En revue'}
+                {approval.status === 'approved' ? 'Valide' : 'En revue'}
               </Badge>
             </div>
           ))}
@@ -132,15 +165,54 @@ export function CertificatesPage() {
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
-        <Button variant="outline" className="justify-start">
+        <Button
+          variant="outline"
+          className="justify-start"
+          onClick={() => setFeedback('Verification PKI relancee. Aucun nouvel ecart detecte.')}
+        >
           <RefreshCw className="h-4 w-4" />
-          Rafraîchir la PKI
+          Rafraichir la PKI
         </Button>
-        <Button variant="gradient" className="justify-start">
+        <Button variant="gradient" className="justify-start" onClick={() => setRenewalOpen(true)}>
           <KeyRound className="h-4 w-4" />
-          Préparer renouvellement
+          Preparer renouvellement
         </Button>
       </div>
+
+      <Modal open={renewalOpen} onClose={() => setRenewalOpen(false)} title="Preparation renouvellement">
+        <div className="space-y-4">
+          {nextRenewal ? (
+            <div className="p-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)]">
+              <p className="text-sm font-medium">{nextRenewal.name}</p>
+              <p className="text-xs text-[var(--text-muted)]">
+                {nextRenewal.environment} · expiration {nextRenewal.expires} · owner {nextRenewal.owner}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--text-muted)]">Aucun certificat en renouvellement imminent.</p>
+          )}
+
+          <div className="space-y-2">
+            <p className="text-sm">Etapes proposees:</p>
+            <p className="text-sm text-[var(--text-secondary)]">1. Generer le CSR et verifier la chaine de confiance.</p>
+            <p className="text-sm text-[var(--text-secondary)]">2. Valider les homologations dependantes avant le depot en production.</p>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setRenewalOpen(false)}>
+              Fermer
+            </Button>
+            <Button
+              onClick={() => {
+                setRenewalOpen(false);
+                navigate('/admin/mycarenet');
+              }}
+            >
+              Voir dependances
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </AnimatedPage>
   );
 }

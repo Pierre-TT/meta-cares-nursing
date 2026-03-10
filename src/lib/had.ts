@@ -807,7 +807,7 @@ const hadEpisodeDetailSelect = `
   logistics_items:had_logistics_items (
     ${hadLogisticsItemsSelect}
   ),
-  visits:visits (
+  visits:visits!visits_had_episode_id_fkey (
     id,
     nurse_id,
     scheduled_start,

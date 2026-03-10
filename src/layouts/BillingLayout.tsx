@@ -22,8 +22,9 @@ import {
   Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { useAuthStore } from '@/stores/authStore';
+import { roleProfileRoutes, useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
+import { Avatar } from '@/design-system';
 
 interface NavGroup {
   title: string;
@@ -69,6 +70,7 @@ const navGroups: NavGroup[] = [
     items: [
       { path: '/billing/agreements', icon: Shield, label: 'Accords' },
       { path: '/billing/audit', icon: ShieldCheck, label: 'Audit' },
+      { path: '/billing/profile', icon: User, label: 'Mon profil' },
       { path: '/billing/settings', icon: Settings, label: 'Paramètres' },
     ],
   },
@@ -110,7 +112,9 @@ export function BillingLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
+  const user = useAuthStore((s) => s.user);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const profilePath = user ? roleProfileRoutes[user.role] : '/billing/profile';
 
   const isActive = (path: string) => {
     if (path === '/billing') return location.pathname === '/billing';
@@ -122,7 +126,11 @@ export function BillingLayout() {
       {/* Sidebar — desktop */}
       <aside className="hidden lg:flex flex-col w-64 border-r border-[var(--border-default)] bg-[var(--bg-primary)]">
         <div className="p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#47B6FF] to-[#4ABD33] flex items-center justify-center text-white text-xs font-bold">MB</div>
+              <Avatar
+                src={user?.avatarUrl}
+                name={`${user?.firstName ?? 'Meta'} ${user?.lastName ?? 'Cares'}`}
+                size="sm"
+              />
           <div className="flex-1 min-w-0">
             <h1 className="text-sm font-bold truncate">
               <span className="text-gradient">Meta Cares</span>
@@ -143,7 +151,24 @@ export function BillingLayout() {
             }}
           />
         </nav>
-        <div className="p-3 border-t border-[var(--border-default)]">
+        <div className="p-3 border-t border-[var(--border-default)] space-y-2">
+          <button
+            type="button"
+            onClick={() => navigate(profilePath)}
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+          >
+                <Avatar
+                  src={user?.avatarUrl}
+                  name={`${user?.firstName ?? 'Meta'} ${user?.lastName ?? 'Cares'}`}
+                  size="sm"
+                />
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-sm font-medium truncate">
+                {user ? `${user.firstName} ${user.lastName}` : 'Mon profil'}
+              </p>
+              <p className="text-[10px] text-[var(--text-muted)]">{user?.email ?? 'Modifier le profil'}</p>
+            </div>
+          </button>
           <button
             onClick={() => { logout(); navigate('/login'); }}
             className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-sm font-medium text-[var(--text-muted)] hover:text-mc-red-500 hover:bg-mc-red-50 dark:hover:bg-red-900/20 transition-colors"

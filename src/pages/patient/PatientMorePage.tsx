@@ -1,6 +1,20 @@
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Calendar, Euro, BookOpen, ClipboardList, Users, Settings, LogOut, Shield, Accessibility, HeartPulse } from 'lucide-react';
-import { Card, Button, AnimatedPage } from '@/design-system';
+import {
+  Accessibility,
+  BookOpen,
+  Calendar,
+  ClipboardList,
+  Euro,
+  HeartPulse,
+  LogOut,
+  MessageCircle,
+  Settings,
+  Shield,
+  UserRound,
+  Users,
+} from 'lucide-react';
+import { AnimatedPage, Button, Card } from '@/design-system';
+import { roleProfileRoutes, useAuthStore } from '@/stores/authStore';
 
 const sections = [
   {
@@ -22,20 +36,31 @@ const sections = [
       { icon: Accessibility, label: 'Accessibilité', path: '/patient/more', color: 'text-mc-blue-400', bg: 'bg-mc-blue-50 dark:bg-mc-blue-900/20' },
     ],
   },
+  {
+    title: 'Compte',
+    items: [
+      { icon: UserRound, label: 'Mon profil', path: '/patient/profile', color: 'text-mc-blue-500', bg: 'bg-mc-blue-50 dark:bg-mc-blue-900/20' },
+    ],
+  },
 ];
 
 export function PatientMorePage() {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const profilePath = user ? roleProfileRoutes[user.role] : '/patient/profile';
 
   return (
     <AnimatedPage className="px-4 py-6 max-w-lg mx-auto space-y-6">
-      {sections.map(section => (
+      {sections.map((section) => (
         <div key={section.title}>
           <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-2">{section.title}</p>
           <div className="grid grid-cols-4 gap-3">
-            {section.items.map(item => (
-              <button key={item.label} onClick={() => navigate(item.path)}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors">
+            {section.items.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => navigate(item.path === '/patient/profile' ? profilePath : item.path)}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+              >
                 <div className={`h-10 w-10 rounded-xl ${item.bg} flex items-center justify-center`}>
                   <item.icon className={`h-5 w-5 ${item.color}`} />
                 </div>
@@ -46,11 +71,11 @@ export function PatientMorePage() {
         </div>
       ))}
 
-      <Card className="flex items-center gap-3">
+      <Card className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(profilePath)}>
         <Settings className="h-5 w-5 text-[var(--text-muted)]" />
         <div className="flex-1">
-          <p className="text-sm font-medium">Paramètres</p>
-          <p className="text-[10px] text-[var(--text-muted)]">Notifications, langue, thème</p>
+          <p className="text-sm font-medium">Profil & sécurité</p>
+          <p className="text-[10px] text-[var(--text-muted)]">Coordonnées et mot de passe</p>
         </div>
       </Card>
 

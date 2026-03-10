@@ -13,6 +13,7 @@ import {
   getEAgreementPresentationVariant,
   type EAgreementPresentationStatus,
 } from '@/lib/eagreements';
+import { maskNiss } from '@/lib/niss';
 import { useAuthStore } from '@/stores/authStore';
 
 type EAgreementTab = 'list' | 'new';
@@ -535,7 +536,7 @@ export function EAgreementPage() {
                     )}
                   </div>
                   <p className="text-xs text-[var(--text-muted)]">
-                    NISS: {request.patient.niss || '—'} · Mutuelle: {request.patient.mutuality || '—'}
+                    NISS: {maskNiss(request.patient.niss)} · Mutuelle: {request.patient.mutuality || '—'}
                   </p>
                   <p className="text-sm">{request.nomenclature}</p>
                   <p className="text-xs text-[var(--text-muted)]">
@@ -594,7 +595,7 @@ export function EAgreementPage() {
               <option value="">Sélectionner un patient…</option>
               {patients.map((patient) => (
                 <option key={patient.routeId} value={patient.routeId}>
-                  {patient.firstName} {patient.lastName} — {patient.niss}
+                  {patient.firstName} {patient.lastName} — {maskNiss(patient.niss)}
                 </option>
               ))}
             </select>
@@ -609,7 +610,7 @@ export function EAgreementPage() {
                 <p className="text-xs text-[var(--text-muted)]">Patient</p>
                 <p className="text-sm font-semibold">{selectedPatient.firstName} {selectedPatient.lastName}</p>
                 <p className="text-xs text-[var(--text-muted)] mt-1">
-                  NISS {selectedPatient.niss} · {selectedPatient.mutuality}
+                  NISS {maskNiss(selectedPatient.niss)} · {selectedPatient.mutuality}
                 </p>
                 <p className="text-xs text-[var(--text-muted)] mt-1">
                   Prescripteur dossier: {selectedPatient.prescribingDoctor || '—'}

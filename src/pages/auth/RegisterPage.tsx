@@ -182,6 +182,8 @@ export function RegisterPage() {
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Prénom"
+              name="firstName"
+              autoComplete="given-name"
               icon={<User className="h-4 w-4" />}
               value={form.firstName}
               onChange={(event) => update('firstName', event.target.value)}
@@ -189,6 +191,8 @@ export function RegisterPage() {
             />
             <Input
               label="Nom"
+              name="lastName"
+              autoComplete="family-name"
               icon={<User className="h-4 w-4" />}
               value={form.lastName}
               onChange={(event) => update('lastName', event.target.value)}
@@ -199,6 +203,8 @@ export function RegisterPage() {
           <Input
             label="Email"
             type="email"
+            name="email"
+            autoComplete="email"
             placeholder="nom@example.be"
             icon={<Mail className="h-4 w-4" />}
             value={form.email}
@@ -210,6 +216,8 @@ export function RegisterPage() {
             <Input
               label="Numéro INAMI"
               placeholder="1-12345-67-890"
+              name="inamiNumber"
+              autoComplete="off"
               icon={<Hash className="h-4 w-4" />}
               value={form.inamiNumber}
               onChange={(event) => update('inamiNumber', event.target.value)}
@@ -220,6 +228,8 @@ export function RegisterPage() {
           <Input
             label="Mot de passe"
             type="password"
+            name="password"
+            autoComplete="new-password"
             placeholder="Min. 8 caractères"
             icon={<Lock className="h-4 w-4" />}
             value={form.password}
@@ -230,6 +240,8 @@ export function RegisterPage() {
           <Input
             label="Confirmer le mot de passe"
             type="password"
+            name="confirmPassword"
+            autoComplete="new-password"
             placeholder="••••••••"
             icon={<Lock className="h-4 w-4" />}
             value={form.confirmPassword}
