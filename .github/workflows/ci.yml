@@ -20,6 +20,9 @@ jobs:
   verify:
     name: Lint, Test, Build
     runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: https://your-project-id.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_replace_me
 
     steps:
       - name: Check out repository
