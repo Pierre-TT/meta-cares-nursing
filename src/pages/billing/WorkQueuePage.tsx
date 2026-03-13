@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { AlertTriangle, CheckCheck, CheckCircle, Clock, FileText, Search, Send, Square, SquareCheck, Zap } from 'lucide-react';
 import { AnimatedPage, Badge, Button, Card, GradientHeader, Input } from '@/design-system';
+import {
+  getComplianceVariant,
+  getQueueCompliance,
+  getQueueComplianceBlockers,
+  getQueueComplianceWarnings,
+} from '@/lib/inamiBillingCompliance';
 
 type QueueStatus = 'pending' | 'validated' | 'error';
 
@@ -25,6 +31,7 @@ const seedQueue: QueueItem[] = [
   { id: 'q6', nurse: 'Laura Van Damme', patient: 'Peeters Henri', date: '05/03/2026', acts: 5, totalW: 18.5, amount: 134.13, status: 'pending' },
   { id: 'q7', nurse: 'Marie Laurent', patient: 'Van den Berg Luc', date: '06/03/2026', acts: 2, totalW: 6.6, amount: 47.86, status: 'pending' },
   { id: 'q8', nurse: 'Thomas Maes', patient: 'Claessens Robert', date: '06/03/2026', acts: 3, totalW: 9.9, amount: 71.8, status: 'validated' },
+  { id: 'q9', nurse: 'Thomas Maes', patient: 'De Smet Anna', date: '06/03/2026', acts: 4, totalW: 12.2, amount: 88.45, status: 'pending' },
 ];
 
 export function WorkQueuePage() {
@@ -46,6 +53,8 @@ export function WorkQueuePage() {
   const pendingItems = filtered.filter((item) => item.status === 'pending');
   const allPendingSelected = pendingItems.length > 0 && pendingItems.every((item) => selected.has(item.id));
   const readyForBatchCount = queueItems.filter((item) => item.status === 'validated').length;
+  const blockedPendingCount = queueItems.filter((item) => item.status === 'pending' && getQueueComplianceBlockers(getQueueCompliance(item.id)).length > 0).length;
+  const warningPendingCount = queueItems.filter((item) => item.status === 'pending' && getQueueComplianceWarnings(getQueueCompliance(item.id)).length > 0).length;
 
   const dates = [...new Set(queueItems.map((item) => item.date))];
   const dailyTotals = dates.map((date) => ({
@@ -82,11 +91,28 @@ export function WorkQueuePage() {
       return;
     }
 
+    const validatableIds = selectedPending
+      .filter((item) => getQueueComplianceBlockers(getQueueCompliance(item.id)).length === 0)
+      .map((item) => item.id);
+    const blockedCount = selectedPending.length - validatableIds.length;
+
+    if (validatableIds.length === 0) {
+      setFeedback('Aucune prestation conforme aux prerequis INAMI/MyCareNet.');
+      return;
+    }
+
     setQueueItems((previous) =>
-      previous.map((item) => (selected.has(item.id) && item.status === 'pending' ? { ...item, status: 'validated' as const } : item))
+      previous.map((item) => (
+        validatableIds.includes(item.id) && item.status === 'pending'
+          ? { ...item, status: 'validated' as const }
+          : item
+      ))
     );
     setSelected(new Set());
-    setFeedback(`${selectedPending.length} prestation(s) validee(s) pour le prochain lot.`);
+    setFeedback(
+      `${validatableIds.length} prestation(s) validee(s) pour le prochain lot.` +
+      (blockedCount > 0 ? ` ${blockedCount} dossier(s) reste(nt) bloques par les prerequis INAMI.` : '')
+    );
   }
 
   function handleSendSelected() {
@@ -96,11 +122,28 @@ export function WorkQueuePage() {
       return;
     }
 
+    const validatableIds = selectedPending
+      .filter((item) => getQueueComplianceBlockers(getQueueCompliance(item.id)).length === 0)
+      .map((item) => item.id);
+    const blockedCount = selectedPending.length - validatableIds.length;
+
+    if (validatableIds.length === 0) {
+      setFeedback('Le lot ne peut pas etre prepare tant que les prerequis INAMI restent ouverts.');
+      return;
+    }
+
     setQueueItems((previous) =>
-      previous.map((item) => (selected.has(item.id) && item.status === 'pending' ? { ...item, status: 'validated' as const } : item))
+      previous.map((item) => (
+        validatableIds.includes(item.id) && item.status === 'pending'
+          ? { ...item, status: 'validated' as const }
+          : item
+      ))
     );
     setSelected(new Set());
-    setFeedback(`Lot eFact prepare avec ${selectedPending.length} prestation(s).`);
+    setFeedback(
+      `Lot eFact prepare avec ${validatableIds.length} prestation(s).` +
+      (blockedCount > 0 ? ` ${blockedCount} dossier(s) restent en correction.` : '')
+    );
   }
 
   function handlePrepareEFact() {
@@ -159,6 +202,34 @@ export function WorkQueuePage() {
           </Card>
         ))}
       </div>
+
+      <Card className="border-l-4 border-l-mc-amber-500">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold">Controle INAMI / MyCareNet avant lot</p>
+            <p className="text-xs text-[var(--text-muted)]">
+              MyCareNet uniquement, identite tracee, MemberData suivi, Medadmin/eAgreement present, prescription archivee 5 ans et justificatif patient dans les 28 jours.
+            </p>
+          </div>
+          <Badge variant={blockedPendingCount > 0 ? 'amber' : 'green'}>
+            {blockedPendingCount > 0 ? `${blockedPendingCount} bloque(s)` : 'Conforme'}
+          </Badge>
+        </div>
+        <div className="grid grid-cols-3 gap-2 mt-3 text-center text-xs">
+          <div className="rounded-xl bg-[var(--bg-tertiary)] p-3">
+            <p className="font-bold text-mc-green-500">{readyForBatchCount}</p>
+            <p className="text-[var(--text-muted)]">Prets</p>
+          </div>
+          <div className="rounded-xl bg-[var(--bg-tertiary)] p-3">
+            <p className="font-bold text-mc-amber-500">{warningPendingCount}</p>
+            <p className="text-[var(--text-muted)]">A surveiller</p>
+          </div>
+          <div className="rounded-xl bg-[var(--bg-tertiary)] p-3">
+            <p className="font-bold text-mc-red-500">{blockedPendingCount}</p>
+            <p className="text-[var(--text-muted)]">Bloques</p>
+          </div>
+        </div>
+      </Card>
 
       <Card className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -221,31 +292,51 @@ export function WorkQueuePage() {
       )}
 
       <div className="space-y-2">
-        {filtered.map((item) => (
-          <Card key={item.id} hover padding="sm" className="cursor-pointer">
-            <div className="flex items-center gap-3">
-              {item.status === 'pending' && (
-                <button type="button" onClick={(event) => { event.stopPropagation(); toggleSelect(item.id); }} className="shrink-0">
-                  {selected.has(item.id) ? <SquareCheck className="h-5 w-5 text-mc-blue-500" /> : <Square className="h-5 w-5 text-[var(--text-muted)]" />}
-                </button>
-              )}
-              <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${item.status === 'error' ? 'bg-mc-red-50 dark:bg-red-900/30' : item.status === 'validated' ? 'bg-mc-green-50 dark:bg-mc-green-900/30' : 'bg-mc-amber-50 dark:bg-amber-900/30'}`}>
-                {item.status === 'error' ? <AlertTriangle className="h-5 w-5 text-mc-red-500" /> : item.status === 'validated' ? <CheckCircle className="h-5 w-5 text-mc-green-500" /> : <Clock className="h-5 w-5 text-mc-amber-500" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold">{item.patient}</p>
-                  <Badge variant={item.status === 'error' ? 'red' : item.status === 'validated' ? 'green' : 'amber'}>
-                    {item.status === 'error' ? 'Erreur' : item.status === 'validated' ? 'Valide' : 'En attente'}
-                  </Badge>
+        {filtered.map((item) => {
+          const compliance = getQueueCompliance(item.id);
+          const blockers = getQueueComplianceBlockers(compliance);
+          const warnings = getQueueComplianceWarnings(compliance);
+
+          return (
+            <Card key={item.id} hover padding="sm" className="cursor-pointer">
+              <div className="flex items-center gap-3">
+                {item.status === 'pending' && (
+                  <button type="button" onClick={(event) => { event.stopPropagation(); toggleSelect(item.id); }} className="shrink-0">
+                    {selected.has(item.id) ? <SquareCheck className="h-5 w-5 text-mc-blue-500" /> : <Square className="h-5 w-5 text-[var(--text-muted)]" />}
+                  </button>
+                )}
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${item.status === 'error' ? 'bg-mc-red-50 dark:bg-red-900/30' : item.status === 'validated' ? 'bg-mc-green-50 dark:bg-mc-green-900/30' : blockers.length > 0 ? 'bg-mc-red-50 dark:bg-red-900/30' : 'bg-mc-amber-50 dark:bg-amber-900/30'}`}>
+                  {item.status === 'error' || blockers.length > 0 ? <AlertTriangle className="h-5 w-5 text-mc-red-500" /> : item.status === 'validated' ? <CheckCircle className="h-5 w-5 text-mc-green-500" /> : <Clock className="h-5 w-5 text-mc-amber-500" />}
                 </div>
-                <p className="text-xs text-[var(--text-muted)]">{item.nurse} - {item.date} - {item.acts} actes - {item.totalW.toFixed(1)}W</p>
-                {item.error && <p className="text-xs text-mc-red-500 mt-0.5">{item.error}</p>}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold">{item.patient}</p>
+                    <Badge variant={item.status === 'error' ? 'red' : item.status === 'validated' ? 'green' : blockers.length > 0 ? 'red' : 'amber'}>
+                      {item.status === 'error' ? 'Erreur' : item.status === 'validated' ? 'Valide' : blockers.length > 0 ? 'Bloque INAMI' : 'En attente'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)]">{item.nurse} - {item.date} - {item.acts} actes - {item.totalW.toFixed(1)}W</p>
+                  {item.error && <p className="text-xs text-mc-red-500 mt-0.5">{item.error}</p>}
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {[compliance.identity, compliance.memberData, compliance.medadmin, compliance.prescriptionArchive, compliance.patientJustificatif]
+                      .filter((entry) => entry.state !== 'ready')
+                      .map((entry) => (
+                        <Badge key={`${item.id}-${entry.label}`} variant={getComplianceVariant(entry.state)}>
+                          {entry.label}
+                        </Badge>
+                      ))}
+                  </div>
+                  {warnings.length > 0 && (
+                    <p className="text-[10px] text-[var(--text-muted)] mt-2">
+                      {warnings[0]}
+                    </p>
+                  )}
+                </div>
+                <p className="text-sm font-bold shrink-0">EUR {item.amount.toFixed(2)}</p>
               </div>
-              <p className="text-sm font-bold shrink-0">EUR {item.amount.toFixed(2)}</p>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
     </AnimatedPage>
   );

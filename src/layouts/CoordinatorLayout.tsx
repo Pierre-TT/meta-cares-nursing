@@ -12,7 +12,7 @@ import {
   ArrowRightLeft,
   MessageSquare,
   CalendarOff,
-  Heart,
+  ClipboardCheck,
   ShieldCheck,
   GitBranch,
   Bell,
@@ -41,7 +41,7 @@ const sidebarSections = [
       { path: '/coordinator/team', icon: Users, label: 'Équipe', badge: 0 },
       { path: '/coordinator/shifts', icon: Clock, label: 'Shifts', badge: 0 },
       { path: '/coordinator/absences', icon: CalendarOff, label: 'Absences', badge: 0 },
-      { path: '/coordinator/caseload', icon: Heart, label: 'Charge patients', badge: 0 },
+      { path: '/coordinator/caseload', icon: ClipboardCheck, label: 'BelRAI & charge', badge: 0 },
     ],
   },
   {
@@ -60,7 +60,7 @@ const mobileTabs = [
   { path: '/coordinator', icon: LayoutDashboard, label: 'Accueil', badge: 0 },
   { path: '/coordinator/planning', icon: CalendarDays, label: 'Planning', badge: 3 },
   { path: '/coordinator/map', icon: Map, label: 'Carte', badge: 0 },
-  { path: '/coordinator/team', icon: Users, label: 'Équipe', badge: 0 },
+  { path: '/coordinator/caseload', icon: ClipboardCheck, label: 'BelRAI', badge: 0 },
   { path: '/coordinator/more', icon: MoreHorizontal, label: 'Plus', badge: 0 },
 ];
 

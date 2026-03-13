@@ -608,7 +608,7 @@ export function PatientDetailPage() {
     } satisfies ClinicalArtifact] : []),
     ...(belrai?.persistenceMode === 'supabase' ? [{
       id: `belrai-${patient.id}`,
-      name: 'Synthèse BelRAI Twin',
+      name: 'Synthese BelRAI Prep',
       typeLabel: 'BelRAI',
       variant: belrai.statusTone,
       dateLabel: formatCompactDateTime(belrai.draft.updatedAt),
@@ -1216,7 +1216,7 @@ export function PatientDetailPage() {
                     Démarrer une visite
                   </Button>
                   <Button variant="outline" onClick={() => navigate(`/nurse/belrai/${patient.id}`)}>
-                    Ouvrir BelRAI
+                    Ouvrir BelRAI Prep
                   </Button>
                 </div>
               </div>

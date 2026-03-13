@@ -32,7 +32,7 @@ const sections = [
     title: 'Gestion',
     items: [
       { path: '/coordinator/absences', icon: CalendarOff, label: 'Absences', color: 'bg-mc-red-50 dark:bg-red-900/30 text-mc-red-500' },
-      { path: '/coordinator/caseload', icon: Heart, label: 'Charge patients', color: 'bg-mc-green-50 dark:bg-mc-green-900/30 text-mc-green-500' },
+      { path: '/coordinator/caseload', icon: Heart, label: 'BelRAI & charge', color: 'bg-mc-green-50 dark:bg-mc-green-900/30 text-mc-green-500' },
       { path: '/coordinator/reconciliation', icon: ArrowRightLeft, label: 'Rapprochement', color: 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-500' },
     ],
   },

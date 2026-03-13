@@ -4,7 +4,7 @@ import {
   Home,
   Heart,
   Pill,
-  FileText,
+  ClipboardList,
   MoreHorizontal,
   Bell,
   Settings,
@@ -18,8 +18,8 @@ import { roleProfileRoutes, useAuthStore } from '@/stores/authStore';
 const tabs = [
   { path: '/patient', icon: Home, label: 'Accueil' },
   { path: '/patient/health', icon: Heart, label: 'Santé' },
+  { path: '/patient/belrai', icon: ClipboardList, label: 'BelRAI' },
   { path: '/patient/treatments', icon: Pill, label: 'Traitements' },
-  { path: '/patient/documents', icon: FileText, label: 'Documents' },
   { path: '/patient/more', icon: MoreHorizontal, label: 'Plus' },
 ];
 
@@ -47,7 +47,7 @@ export function PatientLayout() {
               <h1 className="text-sm font-bold">
                 Bonjour <span className="text-gradient">{firstName}</span>
               </h1>
-              <p className="text-[10px] text-[var(--text-muted)]">Katz B · INAMI couvert</p>
+              <p className="text-[10px] text-[var(--text-muted)]">Mes soins, mes documents et mes résultats partagés</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

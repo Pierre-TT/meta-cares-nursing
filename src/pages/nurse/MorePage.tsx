@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { FileText, Video, Brain, Globe, BarChart3, Shield, Pill, Settings, User, ChevronRight, BellRing, BookOpen, FileCheck, ClipboardList, MessageCircle, CalendarDays, AlertTriangle, Package, GraduationCap, ArrowRightLeft, ScanLine, Siren, Car, Activity, HeartPulse } from 'lucide-react';
+import { FileText, Video, Brain, Globe, BarChart3, Shield, Pill, Settings, User, ChevronRight, BellRing, BookOpen, FileCheck, ClipboardList, MessageCircle, CalendarDays, AlertTriangle, Package, GraduationCap, ArrowRightLeft, ScanLine, Siren, Car, Activity, HeartPulse, LogOut } from 'lucide-react';
 import { Card, Badge, AnimatedPage, GradientHeader } from '@/design-system';
+import { useAuthStore } from '@/stores/authStore';
 
 interface QuickLink {
   icon: React.ReactNode;
@@ -87,6 +88,7 @@ const notifications = [
 
 export function MorePage() {
   const navigate = useNavigate();
+  const logout = useAuthStore((s) => s.logout);
   const unread = notifications.filter(n => !n.read).length;
 
   return (
@@ -148,6 +150,17 @@ export function MorePage() {
           ))}
         </div>
       ))}
+
+      <button
+        onClick={() => {
+          logout();
+          navigate('/login');
+        }}
+        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-medium text-mc-red-500 bg-mc-red-50 dark:bg-red-900/20 hover:bg-mc-red-100 dark:hover:bg-red-900/30 transition-colors"
+      >
+        <LogOut className="h-4 w-4" />
+        Déconnexion
+      </button>
     </AnimatedPage>
   );
 }

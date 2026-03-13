@@ -95,13 +95,20 @@ export type Database = {
           assessment_scope: string
           completed_at: string | null
           created_at: string
+          external_assessment_id: string | null
           id: string
+          linked_prep_assessment_id: string | null
           last_synced_at: string | null
           next_due_at: string | null
+          official_payload: Json
+          official_received_at: string | null
           patient_id: string
+          record_role: Database["public"]["Enums"]["belrai_record_role"]
           review_note: string | null
           reviewed_by: string | null
           source: string
+          source_system: string
+          shared_with_patient_at: string | null
           started_by: string | null
           status: Database["public"]["Enums"]["belrai_assessment_status"]
           submitted_at: string | null
@@ -116,13 +123,20 @@ export type Database = {
           assessment_scope?: string
           completed_at?: string | null
           created_at?: string
+          external_assessment_id?: string | null
           id?: string
+          linked_prep_assessment_id?: string | null
           last_synced_at?: string | null
           next_due_at?: string | null
+          official_payload?: Json
+          official_received_at?: string | null
           patient_id: string
+          record_role?: Database["public"]["Enums"]["belrai_record_role"]
           review_note?: string | null
           reviewed_by?: string | null
           source?: string
+          source_system?: string
+          shared_with_patient_at?: string | null
           started_by?: string | null
           status?: Database["public"]["Enums"]["belrai_assessment_status"]
           submitted_at?: string | null
@@ -137,13 +151,20 @@ export type Database = {
           assessment_scope?: string
           completed_at?: string | null
           created_at?: string
+          external_assessment_id?: string | null
           id?: string
+          linked_prep_assessment_id?: string | null
           last_synced_at?: string | null
           next_due_at?: string | null
+          official_payload?: Json
+          official_received_at?: string | null
           patient_id?: string
+          record_role?: Database["public"]["Enums"]["belrai_record_role"]
           review_note?: string | null
           reviewed_by?: string | null
           source?: string
+          source_system?: string
+          shared_with_patient_at?: string | null
           started_by?: string | null
           status?: Database["public"]["Enums"]["belrai_assessment_status"]
           submitted_at?: string | null
@@ -155,6 +176,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "belrai_assessments_linked_prep_assessment_id_fkey"
+            columns: ["linked_prep_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "belrai_assessments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "belrai_assessments_patient_id_fkey"
             columns: ["patient_id"]
@@ -2724,6 +2752,14 @@ export type Database = {
         Args: { target_assessment_id: string }
         Returns: boolean
       }
+      can_access_belrai_shared_result: {
+        Args: { target_assessment_id: string }
+        Returns: boolean
+      }
+      can_access_belrai_staff_assessment: {
+        Args: { target_assessment_id: string }
+        Returns: boolean
+      }
       can_access_visit: { Args: { target_visit_id: string }; Returns: boolean }
       has_any_role: {
         Args: { required_roles: Database["public"]["Enums"]["user_role"][] }
@@ -2765,6 +2801,7 @@ export type Database = {
         | "manual"
       belrai_participant_status: "invited" | "contributed" | "declined"
       belrai_priority: "low" | "medium" | "high"
+      belrai_record_role: "prep" | "official"
       belrai_sync_status:
         | "local_only"
         | "queued"
@@ -2956,6 +2993,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      belrai_record_role: ["prep", "official"],
       dashboard_scope: ["admin", "coordinator", "billing"],
       had_eligibility_result: ["eligible", "eligible_with_conditions", "not_eligible"],
       had_episode_status: [

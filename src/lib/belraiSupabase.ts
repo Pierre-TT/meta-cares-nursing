@@ -1,24 +1,40 @@
-import type { Tables, TablesInsert } from '@/lib/database.types';
+import type { Json, Tables, TablesInsert } from '@/lib/database.types';
 import {
+  createBelraiKatzEstimate,
   buildBelraiTwin,
+  formatBelraiDateTime,
   isBelraiDraftPendingSync,
   listStoredBelraiDrafts,
   loadStoredBelraiDraft,
   persistBelraiDraft,
   resetBelraiDraft,
+  type BelraiCap,
+  type BelraiOfficialResult,
   type BelraiScoreCard,
+  type BelraiTone,
   type BelraiTwinSnapshot,
   type StoredBelraiDraft,
 } from '@/lib/belrai';
 import { queueDataAccessLog } from '@/lib/dataAccess';
 import { mapPatientRecordToProfile } from '@/lib/platformData';
 import { mockPatients, type Patient } from '@/lib/patients';
+import {
+  fetchRecentBelraiAssessments,
+  findLatestBelraiAssessmentByRole,
+  ingestBelraiOfficialResultRecord,
+  type BelraiOfficialImportPayload,
+} from '@/shared/belraiOfficialIngest';
 import { supabase } from '@/lib/supabase';
 
 interface ResolvedBelraiPatient {
   patient: Patient;
   databasePatientId: string | null;
 }
+
+type BelraiAssessmentRecordRole = 'prep' | 'official';
+type BelraiAssessmentRow = Tables<'belrai_assessments'>;
+type BelraiCapRow = Tables<'belrai_caps'>;
+type BelraiScoreRow = Tables<'belrai_scores'>;
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -131,6 +147,258 @@ async function resolveBelraiPatient(patientId: string): Promise<ResolvedBelraiPa
   throw new Error('Patient introuvable pour le module BelRAI.');
 }
 
+function isJsonRecord(value: Json | null | undefined): value is Record<string, Json | undefined> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readJsonString(value: Json | undefined) {
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+}
+
+function readJsonNumber(value: Json | undefined) {
+  return typeof value === 'number' ? value : undefined;
+}
+
+function readJsonStringArray(value: Json | undefined) {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+    : [];
+}
+
+function getAssessmentRecordRole(
+  assessment: Partial<BelraiAssessmentRow> | null | undefined,
+): BelraiAssessmentRecordRole {
+  return assessment?.record_role === 'official' ? 'official' : 'prep';
+}
+
+function isAssessmentSynced(
+  assessment: Pick<BelraiAssessmentRow, 'status' | 'sync_status'> | null | undefined,
+) {
+  return Boolean(assessment && (
+    assessment.status === 'synced' ||
+    assessment.sync_status === 'synced'
+  ));
+}
+
+function parseKatzCategory(value: string | undefined): Patient['katzCategory'] | undefined {
+  switch (value) {
+    case 'O':
+    case 'A':
+    case 'B':
+    case 'C':
+    case 'Cd':
+      return value;
+    default:
+      return undefined;
+  }
+}
+
+function mapBelraiTone(value: string | null | undefined): BelraiTone {
+  switch (value) {
+    case 'green':
+    case 'amber':
+    case 'red':
+      return value;
+    default:
+      return 'blue';
+  }
+}
+
+function readKatzSnapshot(payload: Json | null | undefined) {
+  const record = isJsonRecord(payload) ? payload : null;
+  const katz = record && isJsonRecord(record.katz) ? record.katz : null;
+
+  return {
+    category: parseKatzCategory(readJsonString(katz?.category)),
+    total: readJsonNumber(katz?.total),
+  };
+}
+
+function resolveAssessmentKatz(
+  patient: Patient,
+  assessment: BelraiAssessmentRow,
+  scores: BelraiScoreCard[],
+) {
+  const scoreCategory = parseKatzCategory(scores.find((score) => score.key === 'katz')?.value);
+  const officialSnapshot = readKatzSnapshot(assessment.official_payload);
+  const summarySnapshot = readKatzSnapshot(assessment.summary);
+  const category = scoreCategory ?? officialSnapshot.category ?? summarySnapshot.category ?? patient.katzCategory;
+  const total = officialSnapshot.total ?? summarySnapshot.total ?? patient.katzScore ?? 0;
+
+  if (category) {
+    return createBelraiKatzEstimate(category, total);
+  }
+
+  return createBelraiKatzEstimate('O', total);
+}
+
+function mapBelraiScoreRow(row: BelraiScoreRow): BelraiScoreCard {
+  return {
+    key: row.score_key,
+    label: row.label,
+    value: row.value_text ?? (typeof row.value_numeric === 'number' ? String(row.value_numeric) : '—'),
+    detail: row.interpretation ?? '',
+    tone: mapBelraiTone(row.tone),
+  };
+}
+
+function mapBelraiCapRow(row: BelraiCapRow): BelraiCap {
+  const metadata = isJsonRecord(row.metadata) ? row.metadata : null;
+
+  return {
+    id: row.cap_key,
+    title: row.title,
+    detail: row.detail,
+    priority: row.priority,
+    tone: mapBelraiTone(readJsonString(metadata?.tone)),
+    rationale: row.rationale,
+    linkedDiagnosis: readJsonString(metadata?.linkedDiagnosis) ?? '',
+    suggestedInterventions: readJsonStringArray(metadata?.suggestedInterventions),
+  };
+}
+
+function findLatestLegacySharedPrepAssessment(assessments: BelraiAssessmentRow[]) {
+  return assessments.find((assessment) =>
+    getAssessmentRecordRole(assessment) === 'prep' &&
+    isAssessmentSynced(assessment)
+  ) ?? null;
+}
+
+async function loadAssessmentAnswers(assessmentId: string) {
+  const { data: answers, error } = await supabase
+    .from('belrai_answers')
+    .select('item_id, response_value, is_confirmed')
+    .eq('assessment_id', assessmentId);
+
+  if (error) {
+    throw error;
+  }
+
+  const nextAnswers: Record<string, number> = {};
+  const confirmedItemIds: string[] = [];
+
+  (answers ?? []).forEach((row) => {
+    if (typeof row.response_value === 'number') {
+      nextAnswers[row.item_id] = row.response_value;
+    }
+
+    if (row.is_confirmed) {
+      confirmedItemIds.push(row.item_id);
+    }
+  });
+
+  return {
+    answers: nextAnswers,
+    confirmedItemIds,
+  };
+}
+
+async function loadAssessmentOutputs(assessmentId: string) {
+  const [{ data: caps, error: capsError }, { data: scores, error: scoresError }] = await Promise.all([
+    supabase
+      .from('belrai_caps')
+      .select('*')
+      .eq('assessment_id', assessmentId)
+      .order('priority', { ascending: false }),
+    supabase
+      .from('belrai_scores')
+      .select('*')
+      .eq('assessment_id', assessmentId)
+      .order('created_at', { ascending: true }),
+  ]);
+
+  if (capsError) {
+    throw capsError;
+  }
+
+  if (scoresError) {
+    throw scoresError;
+  }
+
+  return {
+    caps: (caps ?? []) as BelraiCapRow[],
+    scores: (scores ?? []) as BelraiScoreRow[],
+  };
+}
+
+async function loadOfficialResult(
+  patient: Patient,
+  officialAssessment: BelraiAssessmentRow | null,
+  legacySharedAssessment: BelraiAssessmentRow | null,
+) {
+  const assessment = officialAssessment ?? legacySharedAssessment;
+
+  if (!assessment) {
+    return null;
+  }
+
+  const { caps, scores } = await loadAssessmentOutputs(assessment.id);
+  const mappedScores = scores.map(mapBelraiScoreRow);
+  const mappedCaps = caps.map(mapBelraiCapRow);
+  const isLegacyFallback = !officialAssessment;
+  const receivedAt =
+    assessment.official_received_at ??
+    assessment.last_synced_at ??
+    assessment.submitted_at ??
+    assessment.updated_at;
+  const sharedWithPatientAt = isLegacyFallback
+    ? receivedAt
+    : assessment.shared_with_patient_at ?? undefined;
+
+  return {
+    assessmentId: assessment.id,
+    linkedPrepAssessmentId: assessment.linked_prep_assessment_id ?? undefined,
+    templateKey: assessment.template_key,
+    templateVersion: assessment.template_version,
+    assessmentScope: assessment.assessment_scope,
+    recordRole: isLegacyFallback ? 'legacy_synced_prep' : 'official',
+    sourceSystem: assessment.source_system ?? assessment.source,
+    receivedAt,
+    receivedLabel: formatBelraiDateTime(receivedAt),
+    sharedWithPatientAt,
+    sharedLabel: formatBelraiDateTime(sharedWithPatientAt ?? receivedAt),
+    isSharedWithPatient: isLegacyFallback ? true : Boolean(sharedWithPatientAt),
+    statusLabel: isLegacyFallback
+      ? 'Partage issu du flux prep historique'
+      : sharedWithPatientAt
+        ? 'Partage patient actif'
+        : 'RÃ©sultats officiels en attente de partage',
+    syncLabel: isLegacyFallback
+      ? 'SynthÃ¨se visible via le dernier dossier prep synchronisÃ©.'
+      : sharedWithPatientAt
+        ? `RÃ©sultats officiels partagÃ©s le ${formatBelraiDateTime(sharedWithPatientAt)}.`
+        : `RÃ©sultats officiels reÃ§us le ${formatBelraiDateTime(receivedAt)}.`,
+    katz: resolveAssessmentKatz(patient, assessment, mappedScores),
+    scores: mappedScores,
+    caps: mappedCaps,
+  } satisfies BelraiOfficialResult;
+}
+
+async function fetchLatestPrepAssessment(databasePatientId: string) {
+  const assessments = await fetchRecentBelraiAssessments(supabase, databasePatientId);
+  return findLatestBelraiAssessmentByRole(assessments, 'prep');
+}
+
+async function loadPersistedDraftFromAssessment(
+  routePatientId: string,
+  assessment: BelraiAssessmentRow,
+): Promise<StoredBelraiDraft> {
+  const answerState = await loadAssessmentAnswers(assessment.id);
+
+  return {
+    assessmentId: assessment.id,
+    patientId: routePatientId,
+    status: assessment.status,
+    syncStatus: assessment.sync_status,
+    storage: 'supabase',
+    answers: answerState.answers,
+    confirmedItemIds: answerState.confirmedItemIds,
+    reviewNote: assessment.review_note ?? '',
+    updatedAt: assessment.updated_at,
+    submittedAt: assessment.submitted_at ?? undefined,
+  };
+}
+
 async function fetchLatestAssessment(databasePatientId: string) {
   const { data, error } = await supabase
     .from('belrai_assessments')
@@ -198,6 +466,8 @@ async function loadPersistedDraft(
   };
 }
 
+void loadPersistedDraft;
+
 function buildCachedDraft(
   patientId: string,
   draft: StoredBelraiDraft,
@@ -208,6 +478,17 @@ function buildCachedDraft(
     patientId,
     ...overrides,
   } satisfies StoredBelraiDraft;
+}
+
+function attachOfficialResult(
+  snapshot: BelraiTwinSnapshot,
+  officialResult: BelraiOfficialResult | null,
+): BelraiTwinSnapshot {
+  return {
+    ...snapshot,
+    officialResult,
+    sharedResultsReady: Boolean(officialResult?.isSharedWithPatient),
+  };
 }
 
 function queueBelraiReadLog(
@@ -233,6 +514,8 @@ function queueBelraiReadLog(
       status: snapshot.draft.status,
       syncStatus: snapshot.draft.syncStatus,
       progressPercent: snapshot.progress.percent,
+      sharedResultsReady: snapshot.sharedResultsReady,
+      officialRecordRole: snapshot.officialResult?.recordRole ?? null,
     },
   });
 }
@@ -268,12 +551,14 @@ async function upsertAssessment(
   const payload: TablesInsert<'belrai_assessments'> = {
     ...(isUuid(draft.assessmentId) ? { id: draft.assessmentId } : {}),
     patient_id: databasePatientId,
+    record_role: 'prep',
     template_key: 'interrai_hc_screener',
     template_version: 'local-v1',
     assessment_scope: 'screening',
     status: draft.status,
     sync_status: draft.syncStatus,
-    source: 'meta_cares_twin',
+    source: 'meta_cares_prep',
+    source_system: 'meta_cares_prep',
     review_note: draft.reviewNote || null,
     summary: toAssessmentSummary(snapshot),
     completed_at: draft.status === 'ready_for_sync' || draft.status === 'synced'
@@ -523,6 +808,21 @@ async function upsertSyncJob(snapshot: BelraiTwinSnapshot, assessmentId: string)
   }
 }
 
+export async function ingestBelraiOfficialResult(
+  patientId: string,
+  payload: BelraiOfficialImportPayload,
+): Promise<BelraiTwinSnapshot> {
+  const resolved = await resolveBelraiPatient(patientId);
+
+  if (!resolved.databasePatientId) {
+    throw new Error('Impossible d importer un resultat officiel BelRAI sans dossier Supabase relie.');
+  }
+
+  await ingestBelraiOfficialResultRecord(supabase, resolved.databasePatientId, payload);
+
+  return loadBelraiSnapshot(patientId);
+}
+
 async function persistBelraiGraph(
   databasePatientId: string,
   draft: StoredBelraiDraft,
@@ -552,7 +852,7 @@ async function clearPersistedAssessment(
   routePatientId: string,
   databasePatientId: string,
 ): Promise<StoredBelraiDraft | null> {
-  const assessment = await fetchLatestAssessment(databasePatientId);
+  const assessment = await fetchLatestPrepAssessment(databasePatientId);
 
   if (!assessment) {
     return null;
@@ -618,22 +918,32 @@ export async function loadBelraiSnapshot(patientId: string): Promise<BelraiTwinS
   const cachedDraft = loadStoredBelraiDraft(patientId);
 
   if (!resolved.databasePatientId) {
-    const snapshot = buildBelraiTwin(
+    const snapshot = attachOfficialResult(buildBelraiTwin(
       resolved.patient,
       buildCachedDraft(patientId, cachedDraft, { storage: 'local' }),
-    );
+    ), null);
     queueBelraiReadLog(snapshot, resolved.patient, patientId, null, 'local');
     return snapshot;
   }
 
   try {
-    const persistedDraft = await loadPersistedDraft(patientId, resolved.databasePatientId);
+    const assessments = await fetchRecentBelraiAssessments(supabase, resolved.databasePatientId);
+    const prepAssessment = findLatestBelraiAssessmentByRole(assessments, 'prep');
+    const officialAssessment = findLatestBelraiAssessmentByRole(assessments, 'official');
+    const legacySharedAssessment = officialAssessment
+      ? null
+      : findLatestLegacySharedPrepAssessment(assessments);
+    const officialResult = await loadOfficialResult(
+      resolved.patient,
+      officialAssessment,
+      legacySharedAssessment,
+    );
 
-    if (!persistedDraft) {
-      const snapshot = buildBelraiTwin(
+    if (!prepAssessment) {
+      const snapshot = attachOfficialResult(buildBelraiTwin(
         resolved.patient,
         buildCachedDraft(patientId, cachedDraft, { storage: 'local' }),
-      );
+      ), officialResult);
       queueBelraiReadLog(
         snapshot,
         resolved.patient,
@@ -644,8 +954,12 @@ export async function loadBelraiSnapshot(patientId: string): Promise<BelraiTwinS
       return snapshot;
     }
 
+    const persistedDraft = await loadPersistedDraftFromAssessment(patientId, prepAssessment);
     persistBelraiDraft(patientId, persistedDraft, { preserveUpdatedAt: true });
-    const snapshot = buildBelraiTwin(resolved.patient, persistedDraft);
+    const snapshot = attachOfficialResult(
+      buildBelraiTwin(resolved.patient, persistedDraft),
+      officialResult,
+    );
     queueBelraiReadLog(
       snapshot,
       resolved.patient,
@@ -655,10 +969,10 @@ export async function loadBelraiSnapshot(patientId: string): Promise<BelraiTwinS
     );
     return snapshot;
   } catch {
-    const snapshot = buildBelraiTwin(
+    const snapshot = attachOfficialResult(buildBelraiTwin(
       resolved.patient,
       buildCachedDraft(patientId, cachedDraft, { storage: 'local' }),
-    );
+    ), null);
     queueBelraiReadLog(
       snapshot,
       resolved.patient,

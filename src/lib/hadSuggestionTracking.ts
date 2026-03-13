@@ -54,7 +54,7 @@ export function extractHadSuggestionTrackingCode(description?: string) {
 export function getHadSuggestionSourceLabel(trackingCode?: string) {
   switch (trackingCode?.split(':')[0]) {
     case 'caseload':
-      return 'Charge Patients';
+      return 'BelRAI & charge';
     case 'team':
       return 'Gestion Équipe';
     default:

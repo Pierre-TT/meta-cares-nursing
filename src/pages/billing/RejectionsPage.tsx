@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, CheckCircle, RotateCcw, Search, Sparkles, TrendingUp } from 'lucide-react';
 import { AnimatedPage, Badge, Button, Card, GradientHeader, Input } from '@/design-system';
+import { inamiRejectionGuidance } from '@/lib/inamiBillingCompliance';
 
 interface Rejection {
   id: string;
@@ -21,6 +22,7 @@ const seedRejections: Rejection[] = [
   { id: 'r3', patient: 'Dubois Marie', nurse: 'Marie Laurent', date: '28/02/2026', code: '425611', reason: 'Pansement complexe: accord prealable requis', amount: 37.29, status: 'corrected' },
   { id: 'r4', patient: 'Janssen Pierre', nurse: 'Marie Laurent', date: '25/02/2026', code: '425434', reason: 'Double facturation meme journee', amount: 26.1, status: 'corrected' },
   { id: 'r5', patient: 'Lambert Jeanne', nurse: 'Thomas Maes', date: '22/02/2026', code: '425110', reason: 'Patient non assure a la date de prestation', amount: 37.29, status: 'abandoned' },
+  { id: 'r6', patient: 'De Smet Anna', nurse: 'Thomas Maes', date: '06/03/2026', code: 'ID-TRACE', reason: 'Trace identite patient absente avant emission du lot', amount: 88.45, status: 'open', aiSuggestion: 'Rattacher la lecture eID ou encoder le fallback manuel motive avant reemission', aiConfidence: 95 },
 ];
 
 const rejectPatterns = [
@@ -134,6 +136,27 @@ export function RejectionsPage() {
               <span className={`text-[10px] font-medium ${pattern.trend === 'up' ? 'text-mc-red-500' : pattern.trend === 'down' ? 'text-mc-green-500' : 'text-[var(--text-muted)]'}`}>
                 {pattern.trend === 'up' ? 'up' : pattern.trend === 'down' ? 'down' : 'stable'}
               </span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="border-l-4 border-l-mc-amber-500">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-mc-amber-500" />
+            <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Guides de correction INAMI</p>
+          </div>
+          {inamiRejectionGuidance.map((guide) => (
+            <div key={guide.code} className="rounded-xl bg-[var(--bg-secondary)] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">{guide.title}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{guide.detail}</p>
+                </div>
+                <Badge variant="outline">{guide.code}</Badge>
+              </div>
+              <p className="text-[10px] text-[var(--text-muted)] mt-2">{guide.impact}</p>
             </div>
           ))}
         </div>

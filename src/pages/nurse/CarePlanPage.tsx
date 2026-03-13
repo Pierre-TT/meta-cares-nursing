@@ -1002,7 +1002,7 @@ export function CarePlanPage() {
         return 'Ouvrir visite';
       case 'belrai':
       default:
-        return 'Revoir BelRAI';
+        return 'Revoir BelRAI Prep';
     }
   };
 
@@ -1072,7 +1072,7 @@ export function CarePlanPage() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4 text-mc-blue-500" />
-            <CardTitle>Propositions issues du BelRAI Twin</CardTitle>
+            <CardTitle>Propositions issues du BelRAI Prep</CardTitle>
           </div>
           <Badge variant="blue">{belrai?.carePlanSuggestions.length ?? 0} suggestion(s)</Badge>
         </CardHeader>
@@ -1112,11 +1112,11 @@ export function CarePlanPage() {
           </div>
         ) : isBelraiLoading ? (
           <p className="text-sm text-[var(--text-muted)]">
-            Consolidation du BelRAI Twin en cours…
+            Consolidation du BelRAI Prep en cours...
           </p>
         ) : (
           <p className="text-sm text-[var(--text-muted)]">
-            Aucune proposition n’est encore activée. Complétez ou confirmez le BelRAI Twin pour obtenir des actions de plan de soins.
+            Aucune proposition n'est encore activee. Completez ou confirmez le BelRAI Prep pour obtenir des actions de plan de soins.
           </p>
         )}
 
@@ -1127,7 +1127,7 @@ export function CarePlanPage() {
             className="justify-start"
             onClick={() => navigate(`/nurse/belrai/${patient.id}`)}
           >
-            <Sparkles className="h-4 w-4" /> Revoir BelRAI
+            <Sparkles className="h-4 w-4" /> Revoir BelRAI Prep
           </Button>
           <Button
             variant="gradient"
@@ -1150,7 +1150,7 @@ export function CarePlanPage() {
                 Aucun diagnostic structuré n’est encore disponible dans les données persistées.
               </p>
               <Button variant="outline" onClick={() => navigate(`/nurse/belrai/${patient.id}`)}>
-                Ouvrir BelRAI
+                Ouvrir BelRAI Prep
               </Button>
             </div>
           )}

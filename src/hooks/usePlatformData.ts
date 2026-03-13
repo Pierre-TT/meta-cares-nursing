@@ -76,6 +76,7 @@ function normalizeEtaStatus(
 function createFallbackPatientHome(user: User): PlatformSnapshot['patient'] {
   return {
     ...emptyPlatformSnapshot.patient,
+    linkedPatientId: null,
     profile: {
       ...emptyPlatformSnapshot.patient.profile,
       id: user.id,
@@ -187,6 +188,7 @@ async function loadPatientHome(user: User): Promise<PlatformSnapshot['patient']>
   });
 
   return {
+    linkedPatientId: patient.id,
     profile: mapPatientRecordToProfile(
       patient,
       (allergiesResult.data ?? []).map((row) => row.label),

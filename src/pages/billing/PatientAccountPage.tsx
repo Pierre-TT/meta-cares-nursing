@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp, FileText, Search, Shield, User } from 'lucide-react';
 import { AnimatedPage, Badge, Button, Card, GradientHeader, Input, Modal, Tabs } from '@/design-system';
 import { downloadTextFile } from '@/lib/download';
+import { getComplianceVariant, getPatientBillingCompliance } from '@/lib/inamiBillingCompliance';
 import { maskNiss, matchesNissSearch } from '@/lib/niss';
 
 interface PatientInvoice {
@@ -206,6 +207,7 @@ export function PatientAccountPage() {
           filtered.map((patient) => {
             const agreement = agreementConfig[patient.agreementStatus];
             const expanded = expandedId === patient.id;
+            const compliance = getPatientBillingCompliance(patient.id);
 
             return (
               <Card key={patient.id} className="cursor-pointer" onClick={() => setExpandedId(expanded ? null : patient.id)}>
@@ -242,6 +244,37 @@ export function PatientAccountPage() {
                         <p className="text-xs font-bold text-mc-amber-500">{fmt(patient.ticketModerateur)}</p>
                         <p className="text-[10px] text-[var(--text-muted)]">Ticket mod.</p>
                       </div>
+                    </div>
+
+                    <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold">Suivi justificatif et prerequis</p>
+                          <p className="text-[10px] text-[var(--text-muted)]">
+                            Justificatif patient, MemberData, identite, Medadmin et archive prescription.
+                          </p>
+                        </div>
+                        <Badge variant={getComplianceVariant(compliance.patientJustificatif.state)}>
+                          {compliance.patientJustificatif.label}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <Badge variant={getComplianceVariant(compliance.memberData.state)}>
+                          {compliance.memberData.label}
+                        </Badge>
+                        <Badge variant={getComplianceVariant(compliance.identity.state)}>
+                          {compliance.identity.label}
+                        </Badge>
+                        <Badge variant={getComplianceVariant(compliance.prescriptionArchive.state)}>
+                          {compliance.prescriptionArchive.label}
+                        </Badge>
+                        <Badge variant={getComplianceVariant(compliance.medadmin.state)}>
+                          {compliance.medadmin.label}
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] text-[var(--text-muted)] mt-2">
+                        Canal justificatif: {compliance.patientJustificatif.channel} - echeance {compliance.patientJustificatif.dueDate || 'a definir'}.
+                      </p>
                     </div>
 
                     {(patient.agreementEnd || patient.agreementRequestedAt) && (
@@ -328,6 +361,24 @@ export function PatientAccountPage() {
       <Modal open={Boolean(historyPatient)} onClose={() => setHistoryId(null)} title={historyPatient ? `Historique ${historyPatient.name}` : 'Historique'}>
         {historyPatient && (
           <div className="space-y-4">
+            {(() => {
+              const compliance = getPatientBillingCompliance(historyPatient.id);
+
+              return (
+                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium">Justificatif patient</p>
+                    <Badge variant={getComplianceVariant(compliance.patientJustificatif.state)}>
+                      {compliance.patientJustificatif.label}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
+                    Canal {compliance.patientJustificatif.channel} - echeance {compliance.patientJustificatif.dueDate || 'a definir'}.
+                  </p>
+                </div>
+              );
+            })()}
+
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="p-3 rounded-xl bg-[var(--bg-secondary)]">
                 <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Mutuelle</p>

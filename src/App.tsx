@@ -100,6 +100,7 @@ const TreatmentsPage = lazy(() => import('@/pages/patient/TreatmentsPage').then(
 const ParametersPage = lazy(() => import('@/pages/patient/ParametersPage').then(m => ({ default: m.ParametersPage })));
 const QuestionnairePage = lazy(() => import('@/pages/patient/QuestionnairePage').then(m => ({ default: m.QuestionnairePage })));
 const DocumentsPage = lazy(() => import('@/pages/patient/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
+const MyBelRAIPage = lazy(() => import('@/pages/patient/MyBelRAIPage').then(m => ({ default: m.MyBelRAIPage })));
 const FamilyPage = lazy(() => import('@/pages/patient/FamilyPage').then(m => ({ default: m.FamilyPage })));
 const PatientMessagesPage = lazy(() => import('@/pages/patient/PatientMessagesPage').then(m => ({ default: m.PatientMessagesPage })));
 const AppointmentsPage = lazy(() => import('@/pages/patient/AppointmentsPage').then(m => ({ default: m.AppointmentsPage })));
@@ -237,6 +238,7 @@ export default function App() {
             <Route index element={<PatientHome />} />
             <Route path="health" element={<HealthPage />} />
             <Route path="treatments" element={<TreatmentsPage />} />
+            <Route path="belrai" element={<MyBelRAIPage />} />
             <Route path="parameters" element={<ParametersPage />} />
             <Route path="questionnaire" element={<QuestionnairePage />} />
             <Route path="documents" element={<DocumentsPage />} />

@@ -11,6 +11,7 @@ import {
   ServerCog,
 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, CardTitle, AnimatedPage, GradientHeader, Modal } from '@/design-system';
+import { getComplianceVariant, inamiElectronicBillingRequirements } from '@/lib/inamiBillingCompliance';
 
 const services = [
   { name: 'eFact (facturation)', status: 'ok', latency: '120ms', lastCheck: '09:15', uptime: '99.8%' },
@@ -109,6 +110,31 @@ export function MyCareNetPage() {
           <Button variant="outline" size="sm" onClick={() => navigate('/admin/certificates')}>
             Preparer
           </Button>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Exigences facturation electronique</CardTitle>
+          <Badge variant="blue">INAMI / MyCareNet</Badge>
+        </CardHeader>
+        <div className="space-y-3">
+          {inamiElectronicBillingRequirements.map((requirement) => (
+            <div key={requirement.id} className="rounded-xl bg-[var(--bg-secondary)] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">{requirement.title}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{requirement.detail}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <Badge variant={getComplianceVariant(requirement.state)}>
+                    {requirement.state === 'ready' ? 'En place' : requirement.state === 'warning' ? 'A suivre' : 'Bloque'}
+                  </Badge>
+                  <span className="text-[10px] text-[var(--text-muted)]">{requirement.source}</span>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </Card>
 

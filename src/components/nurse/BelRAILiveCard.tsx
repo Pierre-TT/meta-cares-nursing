@@ -22,11 +22,11 @@ export function BelRAILiveCard({
     return (
       <Card className={className}>
         <CardHeader>
-          <CardTitle>BelRAI Twin</CardTitle>
+          <CardTitle>BelRAI Prep</CardTitle>
           <Badge variant="blue">Chargement</Badge>
         </CardHeader>
         <p className="text-sm text-[var(--text-muted)]">
-          Consolidation du dossier, des preuves et du brouillon BelRAI.
+          Consolidation locale du dossier, des preuves et du brouillon BelRAI avant transmission.
         </p>
       </Card>
     );
@@ -36,11 +36,11 @@ export function BelRAILiveCard({
     return (
       <Card className={className}>
         <CardHeader>
-          <CardTitle>BelRAI Twin</CardTitle>
+          <CardTitle>BelRAI Prep</CardTitle>
           <Badge variant="red">Indisponible</Badge>
         </CardHeader>
         <p className="text-sm text-[var(--text-muted)]">
-          Le jumeau BelRAI local ne peut pas être chargé pour ce patient.
+          La preparation BelRAI locale ne peut pas etre chargee pour ce patient.
         </p>
       </Card>
     );
@@ -51,7 +51,7 @@ export function BelRAILiveCard({
       <CardHeader>
         <div className="flex items-center gap-2">
           <Brain className="h-4 w-4 text-mc-blue-500" />
-          <CardTitle>BelRAI Twin</CardTitle>
+          <CardTitle>BelRAI Prep</CardTitle>
         </div>
         <Badge variant={toneToBadgeVariant(data.statusTone)}>{data.statusLabel}</Badge>
       </CardHeader>
@@ -124,7 +124,7 @@ export function BelRAILiveCard({
           onClick={() => navigate(`/nurse/belrai/${patient.id}`)}
         >
           <ArrowRight className="h-4 w-4" />
-          Ouvrir BelRAI
+          Ouvrir BelRAI Prep
         </Button>
       </div>
     </Card>

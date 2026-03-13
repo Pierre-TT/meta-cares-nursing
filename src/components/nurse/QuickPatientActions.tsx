@@ -37,7 +37,7 @@ export function QuickPatientActions({ patient }: { patient: Patient }) {
     },
     {
       icon: <ClipboardList className="h-4 w-4" />,
-      label: 'BelRAI',
+      label: 'BelRAI Prep',
       color: 'bg-purple-500/10 text-purple-500',
       onClick: () => navigate(`/nurse/belrai/${patient.id}`),
     },

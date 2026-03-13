@@ -13,6 +13,12 @@ import {
   Wifi,
 } from 'lucide-react';
 import { AnimatedPage, Badge, Button, Card, GradientHeader, Modal, Tabs } from '@/design-system';
+import {
+  getBatchCompliance,
+  getBatchSendBlockers,
+  getBatchWarnings,
+  getComplianceVariant,
+} from '@/lib/inamiBillingCompliance';
 
 type BatchStatus = 'draft' | 'validated' | 'sent' | 'accepted' | 'partial' | 'rejected';
 
@@ -85,6 +91,8 @@ export function EFactBatchesPage() {
     .reduce((sum, batch) => sum + batch.totalAmount, 0);
   const filtered = tab === 'all' ? batchRecords : batchRecords.filter((batch) => batch.status === tab);
   const detailBatch = detailId ? batchRecords.find((batch) => batch.id === detailId) ?? null : null;
+  const blockedBatchCount = batchRecords.filter((batch) => getBatchSendBlockers(getBatchCompliance(batch.id)).length > 0).length;
+  const warningBatchCount = batchRecords.filter((batch) => getBatchWarnings(getBatchCompliance(batch.id)).length > 0).length;
 
   function buildBatchReference() {
     const nextNumber =
@@ -130,14 +138,34 @@ export function EFactBatchesPage() {
       return;
     }
 
-    setBatchRecords((previous) => previous.map((batch) => (batch.status === 'draft' ? toSentBatch(batch) : batch)));
+    const sendableBatchIds = batchRecords
+      .filter((batch) => batch.status === 'draft')
+      .filter((batch) => getBatchSendBlockers(getBatchCompliance(batch.id)).length === 0)
+      .map((batch) => batch.id);
+    const blockedCount = draftCount - sendableBatchIds.length;
+
+    if (sendableBatchIds.length === 0) {
+      setFeedback('Aucun brouillon conforme aux prerequis INAMI/MyCareNet.');
+      return;
+    }
+
+    setBatchRecords((previous) => previous.map((batch) => (sendableBatchIds.includes(batch.id) ? toSentBatch(batch) : batch)));
     setExpandedId(null);
-    setFeedback(`${draftCount} lot(s) envoye(s) vers MyCareNet.`);
+    setFeedback(
+      `${sendableBatchIds.length} lot(s) envoye(s) vers MyCareNet.` +
+      (blockedCount > 0 ? ` ${blockedCount} lot(s) restent bloques par les prerequis administratifs.` : '')
+    );
   }
 
   function handleSendBatch(batchId: string) {
     const currentBatch = batchRecords.find((batch) => batch.id === batchId);
     if (!currentBatch) return;
+
+    const blockers = getBatchSendBlockers(getBatchCompliance(batchId));
+    if (blockers.length > 0) {
+      setFeedback(`Lot ${currentBatch.reference} bloque: ${blockers[0]}.`);
+      return;
+    }
 
     setBatchRecords((previous) => previous.map((batch) => (batch.id === batchId ? toSentBatch(batch) : batch)));
     setFeedback(
@@ -198,6 +226,34 @@ export function EFactBatchesPage() {
         })}
       </div>
 
+      <Card className="border-l-4 border-l-mc-amber-500">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold">Conformite eFact infirmier</p>
+            <p className="text-xs text-[var(--text-muted)]">
+              Tiers payant via MyCareNet, paquet homologue, identity coverage, prescriptions archivees 5 ans, documents Medadmin et justificatifs patients sous 28 jours.
+            </p>
+          </div>
+          <Badge variant={blockedBatchCount > 0 ? 'amber' : 'green'}>
+            {blockedBatchCount > 0 ? `${blockedBatchCount} lot(s) bloques` : 'Lots prets'}
+          </Badge>
+        </div>
+        <div className="grid grid-cols-3 gap-2 mt-3 text-center text-xs">
+          <div className="rounded-xl bg-[var(--bg-tertiary)] p-3">
+            <p className="font-bold text-mc-green-500">{batchRecords.filter((batch) => getBatchSendBlockers(getBatchCompliance(batch.id)).length === 0).length}</p>
+            <p className="text-[var(--text-muted)]">Eligibles</p>
+          </div>
+          <div className="rounded-xl bg-[var(--bg-tertiary)] p-3">
+            <p className="font-bold text-mc-amber-500">{warningBatchCount}</p>
+            <p className="text-[var(--text-muted)]">A surveiller</p>
+          </div>
+          <div className="rounded-xl bg-[var(--bg-tertiary)] p-3">
+            <p className="font-bold text-mc-red-500">{blockedBatchCount}</p>
+            <p className="text-[var(--text-muted)]">Bloques</p>
+          </div>
+        </div>
+      </Card>
+
       <div className="flex gap-2">
         <Button className="gap-1" onClick={handleCreateBatch}>
           <Plus className="h-4 w-4" /> Nouveau lot
@@ -225,6 +281,9 @@ export function EFactBatchesPage() {
         {filtered.map((batch) => {
           const cfg = statusConfig[batch.status];
           const expanded = expandedId === batch.id;
+          const compliance = getBatchCompliance(batch.id);
+          const blockers = getBatchSendBlockers(compliance);
+          const warnings = getBatchWarnings(compliance);
 
           return (
             <Card key={batch.id} hover className="cursor-pointer" onClick={() => setExpandedId(expanded ? null : batch.id)}>
@@ -233,11 +292,23 @@ export function EFactBatchesPage() {
                   {statusIcon[batch.status]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold font-mono">{batch.reference}</p>
                     <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                    {blockers.length > 0 && <Badge variant="red">Bloque</Badge>}
                   </div>
                   <p className="text-xs text-[var(--text-muted)]">{batch.mutuelle} - {batch.invoiceCount} factures - {batch.date}</p>
+                  {(blockers.length > 0 || warnings.length > 0) && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {[compliance.approvedPackage, compliance.instructionSync, compliance.identityCoverage, compliance.prescriptionArchive, compliance.medadmin, compliance.patientJustificatif]
+                        .filter((entry) => entry.state !== 'ready')
+                        .map((entry) => (
+                          <Badge key={`${batch.id}-${entry.label}`} variant={getComplianceVariant(entry.state)}>
+                            {entry.label}
+                          </Badge>
+                        ))}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-bold">EUR {batch.totalAmount.toFixed(2)}</p>
@@ -269,6 +340,13 @@ export function EFactBatchesPage() {
                       ))}
                     </div>
                   )}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {[compliance.approvedPackage, compliance.identityCoverage, compliance.prescriptionArchive, compliance.patientJustificatif].map((entry) => (
+                      <div key={`${batch.id}-detail-${entry.label}`} className="rounded-xl bg-[var(--bg-secondary)] p-2">
+                        <Badge variant={getComplianceVariant(entry.state)}>{entry.label}</Badge>
+                      </div>
+                    ))}
+                  </div>
                   <div className="flex gap-2 pt-1">
                     <Button
                       variant="outline"
@@ -345,6 +423,26 @@ export function EFactBatchesPage() {
               <p><span className="text-[var(--text-muted)]">Envoi:</span> {detailBatch.sentAt ?? 'Non envoye'}</p>
               <p><span className="text-[var(--text-muted)]">Reponse:</span> {detailBatch.responseAt ?? 'En attente'}</p>
             </div>
+
+            {(() => {
+              const compliance = getBatchCompliance(detailBatch.id);
+
+              return (
+                <div className="space-y-2">
+                  <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Controle INAMI / MyCareNet</p>
+                  <div className="grid grid-cols-1 gap-2 text-xs">
+                    {[compliance.approvedPackage, compliance.instructionSync, compliance.identityCoverage, compliance.prescriptionArchive, compliance.medadmin, compliance.patientJustificatif].map((entry) => (
+                      <div key={`${detailBatch.id}-${entry.label}`} className="rounded-xl bg-[var(--bg-secondary)] p-3">
+                        <Badge variant={getComplianceVariant(entry.state)}>{entry.label}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Les attestations papier et les prescriptions ne partent pas dans le lot tiers payant; les prescriptions restent archivees dans le dossier infirmier.
+                  </p>
+                </div>
+              );
+            })()}
 
             {detailBatch.rejectReasons && detailBatch.rejectReasons.length > 0 && (
               <div className="p-3 rounded-xl bg-mc-red-500/10">

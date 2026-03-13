@@ -8,15 +8,16 @@ import {
   CalendarDays,
   Map,
   MessageSquare,
-  Heart,
   HeartPulse,
   Sparkles,
   Activity,
   Send,
   ChevronRight,
   Zap,
+  ClipboardCheck,
 } from 'lucide-react';
 import { Card, Badge, Avatar, Button, AnimatedPage, GradientHeader, StatRing, SwipeableCard } from '@/design-system';
+import { useBelraiOperations } from '@/hooks/useBelraiOperations';
 import { useHadEpisodes } from '@/hooks/useHadData';
 import type { HadEpisodeListItem, HadEpisodeRow } from '@/lib/had';
 import { useCoordinatorDashboardData } from '@/hooks/usePlatformData';
@@ -114,6 +115,7 @@ export function CoordinatorDashboard() {
   const navigate = useNavigate();
   const { data } = useCoordinatorDashboardData();
   const { data: hadEpisodes = [], isLoading: isHadLoading } = useHadEpisodes({ onlyOpen: true });
+  const belraiOperations = useBelraiOperations(5);
   const { teamMembers, alerts, activityFeed, aiInsights } = data;
   const totalVisits = teamMembers.reduce((s, m) => s + m.visits, 0);
   const totalCompleted = teamMembers.reduce((s, m) => s + m.completed, 0);
@@ -145,7 +147,7 @@ export function CoordinatorDashboard() {
 
   const quickActions = [
     { icon: CalendarDays, label: 'Planifier', path: '/coordinator/planning', color: 'bg-mc-blue-50 dark:bg-mc-blue-900/30 text-mc-blue-500' },
-    { icon: Heart, label: 'Affecter', path: '/coordinator/caseload', color: 'bg-mc-green-50 dark:bg-mc-green-900/30 text-mc-green-500' },
+    { icon: ClipboardCheck, label: 'BelRAI', path: '/coordinator/caseload', color: 'bg-mc-green-50 dark:bg-mc-green-900/30 text-mc-green-500' },
     { icon: MessageSquare, label: 'Message', path: '/coordinator/messages', color: 'bg-purple-50 dark:bg-purple-900/30 text-purple-500' },
     { icon: Map, label: 'Carte', path: '/coordinator/map', color: 'bg-mc-amber-50 dark:bg-amber-900/30 text-mc-amber-500' },
   ];
@@ -203,6 +205,82 @@ export function CoordinatorDashboard() {
 
       {/* ── HAD Surface ── */}
       <div className="grid gap-4 xl:grid-cols-[0.92fr,1.08fr]">
+        <Card className="space-y-4 border-l-4 border-l-mc-blue-500">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-mc-blue-50 dark:bg-mc-blue-900/30 flex items-center justify-center shrink-0">
+                <ClipboardCheck className="h-5 w-5 text-mc-blue-500" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Pilotage BelRAI</p>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Préparations locales, retours officiels et échéances à coordonner
+                </p>
+              </div>
+            </div>
+            <Badge variant={belraiOperations.summary.attentionCount > 0 ? 'amber' : 'green'}>
+              {belraiOperations.summary.attentionCount} à suivre
+            </Badge>
+          </div>
+
+          {belraiOperations.isLoading ? (
+            <div className="grid grid-cols-2 gap-2">
+              {[0, 1, 2, 3].map((placeholder) => (
+                <div key={placeholder} className="h-20 rounded-2xl bg-[var(--bg-tertiary)] animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-3 py-3">
+                  <p className="text-lg font-bold text-mc-blue-500">{belraiOperations.summary.totalCount}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">dossiers</p>
+                </div>
+                <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-3 py-3">
+                  <p className="text-lg font-bold text-mc-green-500">{belraiOperations.summary.syncedCount}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">partagés</p>
+                </div>
+                <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-3 py-3">
+                  <p className="text-lg font-bold text-mc-amber-500">{belraiOperations.summary.queuedCount}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">en transit</p>
+                </div>
+                <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-3 py-3">
+                  <p className="text-lg font-bold text-mc-red-500">{belraiOperations.summary.overdueCount}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">en retard</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-default)] px-3 py-3 space-y-2">
+                <p className="text-sm font-medium">Priorités coordination</p>
+                {belraiOperations.entries.length === 0 ? (
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Aucun dossier BelRAI n’est encore visible dans la base de coordination.
+                  </p>
+                ) : (
+                  belraiOperations.entries.slice(0, 3).map((entry) => (
+                    <div key={entry.id} className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold">{entry.patientName}</p>
+                        <p className="text-[11px] text-[var(--text-muted)]">{entry.syncLabel} · {entry.dueLabel}</p>
+                      </div>
+                      <Badge variant={entry.statusVariant}>{entry.statusLabel}</Badge>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => navigate('/coordinator/caseload')}>
+                  Ouvrir la vue BelRAI
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/coordinator/caseload')}>
+                  Revoir les blocages
+                </Button>
+              </div>
+            </>
+          )}
+        </Card>
+
         <Card className="space-y-4 border-l-4 border-l-mc-red-500">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">

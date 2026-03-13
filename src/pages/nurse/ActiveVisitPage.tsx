@@ -46,6 +46,7 @@ import {
 } from '@/lib/hourlyPilot';
 import { useAuthStore } from '@/stores/authStore';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
+import { getLatestPatientIdentityVerification } from '@/lib/patientIdentityVerification';
 
 type VisitStep = 'identification' | 'vitals' | 'acts' | 'notes' | 'summary';
 
@@ -339,6 +340,7 @@ export function ActiveVisitPage() {
     );
   }
 
+  const latestIdentityVerification = getLatestPatientIdentityVerification(patient.id);
 
   const handleCompleteVisit = async () => {
     setSubmitError(null);
@@ -615,6 +617,34 @@ export function ActiveVisitPage() {
                     <p className="text-xs font-semibold text-mc-red-600">⚠ Allergies: {patient.allergies.join(', ')}</p>
                   </div>
                 )}
+              </Card>
+              <Card className={latestIdentityVerification ? 'border-[var(--border-default)]' : 'border-mc-red-200 dark:border-red-800'}>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold">Trace d identification</p>
+                    <Badge variant={latestIdentityVerification?.assurance === 'high' ? 'green' : latestIdentityVerification ? 'amber' : 'red'}>
+                      {latestIdentityVerification?.assurance === 'high'
+                        ? 'Haute assurance'
+                        : latestIdentityVerification
+                          ? 'Fallback'
+                          : 'Manquante'}
+                    </Badge>
+                  </div>
+                  {latestIdentityVerification ? (
+                    <>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {latestIdentityVerification.method} - {new Date(latestIdentityVerification.verifiedAt).toLocaleString('fr-BE')}
+                      </p>
+                      {latestIdentityVerification.reason && (
+                        <p className="text-xs text-[var(--text-muted)]">{latestIdentityVerification.reason}</p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-xs text-mc-red-600 dark:text-red-300">
+                      Aucun enregistrement d identite n est rattache a ce contact. Passez d abord par l ecran d identification.
+                    </p>
+                  )}
+                </div>
               </Card>
               <SmartVisitBriefingCard patientRouteId={patient.id} />
             </div>

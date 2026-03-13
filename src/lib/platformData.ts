@@ -363,6 +363,7 @@ export const emptyPlatformSnapshot = {
     }[],
   },
   patient: {
+    linkedPatientId: null as string | null,
     profile: emptyPatientProfile,
     nurseETA: {
       name: '',

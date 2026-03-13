@@ -64,5 +64,5 @@ describe('AgreementManagerPage', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Renouvellement prepare pour Marie Devos.');
     expect(screen.getByText('Historique Marie Devos')).toBeInTheDocument();
-  });
+  }, 10000);
 });

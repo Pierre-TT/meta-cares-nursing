@@ -110,6 +110,26 @@ export interface BelraiCarePlanSuggestion {
   tone: BelraiTone;
 }
 
+export interface BelraiOfficialResult {
+  assessmentId: string;
+  linkedPrepAssessmentId?: string;
+  templateKey: string;
+  templateVersion: string;
+  assessmentScope: string;
+  recordRole: 'official' | 'legacy_synced_prep';
+  sourceSystem: string;
+  receivedAt: string;
+  receivedLabel: string;
+  sharedWithPatientAt?: string;
+  sharedLabel: string;
+  isSharedWithPatient: boolean;
+  statusLabel: string;
+  syncLabel: string;
+  katz: BelraiKatzEstimate;
+  scores: BelraiScoreCard[];
+  caps: BelraiCap[];
+}
+
 export interface BelraiTwinSnapshot {
   patient: Patient;
   sections: BelraiSection[];
@@ -135,6 +155,8 @@ export interface BelraiTwinSnapshot {
   persistenceLabel: string;
   readyToSync: boolean;
   nextAction: string;
+  officialResult: BelraiOfficialResult | null;
+  sharedResultsReady: boolean;
 }
 
 const belraiStoragePrefix = 'mc-belrai-draft:';
@@ -449,6 +471,24 @@ function getKatzProfile(category: BelraiKatzEstimate['category']) {
         color: 'red' as const,
       };
   }
+}
+
+export function createBelraiKatzEstimate(
+  category: BelraiKatzEstimate['category'],
+  total = 0,
+  options?: { descriptionSuffix?: string }
+): BelraiKatzEstimate {
+  const profile = getKatzProfile(category);
+
+  return {
+    category,
+    forfait: profile.forfait,
+    description: options?.descriptionSuffix
+      ? `${profile.description} ${options.descriptionSuffix}`
+      : profile.description,
+    color: profile.color,
+    total,
+  };
 }
 
 function getObservedAt(patient: Patient) {
@@ -879,14 +919,9 @@ export function computeKatzFromBelrai(
   ).length;
 
   if (answeredAdlCount < 2 && patient?.katzCategory) {
-    const profile = getKatzProfile(patient.katzCategory);
-    return {
-      category: patient.katzCategory,
-      forfait: profile.forfait,
-      description: `${profile.description} Reprise du Katz historique en attendant plus de preuves.`,
-      color: profile.color,
-      total: patient.katzScore ?? 0,
-    };
+    return createBelraiKatzEstimate(patient.katzCategory, patient.katzScore ?? 0, {
+      descriptionSuffix: 'Reprise du Katz historique en attendant plus de preuves.',
+    });
   }
 
   const wash = answers.adl1 ?? 0;
@@ -915,15 +950,7 @@ export function computeKatzFromBelrai(
     category = cognitiveSignal ? 'Cd' : 'C';
   }
 
-  const profile = getKatzProfile(category);
-
-  return {
-    category,
-    forfait: profile.forfait,
-    description: profile.description,
-    color: profile.color,
-    total,
-  };
+  return createBelraiKatzEstimate(category, total);
 }
 
 function buildCaps(patient: Patient, answers: Record<string, number>): BelraiCap[] {
@@ -1052,7 +1079,7 @@ export function buildCarePlanSuggestions(caps: BelraiCap[]): BelraiCarePlanSugge
           id: 'suggestion-skin-integrity',
           title: 'Atteinte à l’intégrité cutanée',
           linkedCap: cap.title,
-          detail: 'Proposition dérivée du BelRAI Twin pour sécuriser les soins de plaie et la surveillance.',
+          detail: 'Proposition derivee du BelRAI Prep pour securiser les soins de plaie et la surveillance.',
           diagnosisCode: '00046',
           interventions: [
             'Soins de plaie protocolisés avec traçabilité photo.',
@@ -1323,5 +1350,7 @@ export function buildBelraiTwin(
     persistenceLabel,
     readyToSync,
     nextAction,
+    officialResult: null,
+    sharedResultsReady: false,
   };
 }

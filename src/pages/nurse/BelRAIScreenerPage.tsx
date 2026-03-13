@@ -202,7 +202,7 @@ export function BelRAIScreenerPage() {
     return (
       <AnimatedPage className="px-4 py-6 max-w-lg mx-auto space-y-4">
         <Card>
-          <p className="text-sm text-[var(--text-muted)]">Chargement du workspace BelRAI Twin…</p>
+          <p className="text-sm text-[var(--text-muted)]">Chargement du workspace BelRAI Prep...</p>
         </Card>
       </AnimatedPage>
     );
@@ -275,7 +275,7 @@ export function BelRAIScreenerPage() {
 
                     <div className="rounded-xl bg-[var(--bg-secondary)] p-3 space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium">Suggestion Twin</p>
+                        <p className="text-sm font-medium">Suggestion Prep</p>
                         <Badge variant={toneToBadgeVariant(suggestion.tone)}>
                           {Math.round(suggestion.confidence * 100)}% confiance
                         </Badge>
@@ -528,8 +528,8 @@ export function BelRAIScreenerPage() {
 
       <GradientHeader
         icon={<ClipboardCheck className="h-5 w-5" />}
-        title="BelRAI Twin"
-        subtitle={`${snapshot.patient.firstName} ${snapshot.patient.lastName} · Screener local interRAI HC`}
+        title="BelRAI Prep"
+        subtitle={`${snapshot.patient.firstName} ${snapshot.patient.lastName} · Preparation locale du screener HC`}
         badge={<Badge variant={toneToBadgeVariant(snapshot.statusTone)}>{snapshot.statusLabel}</Badge>}
       >
         <div className="flex items-center justify-around mt-1">
@@ -560,7 +560,7 @@ export function BelRAIScreenerPage() {
             <p className="text-xs text-[var(--text-muted)]">
               {snapshot.persistenceMode === 'supabase'
                 ? 'Le brouillon, les preuves dérivées, les CAPs et l’état de synchronisation sont persistés dans Supabase tout en gardant une reprise locale.'
-                : 'Cette phase consolide le brouillon, les preuves et les CAPs localement dans Meta Cares avant persistance ou branchement de la passerelle officielle BelRAI.'}
+                : 'Cette phase consolide le brouillon, les preuves et les CAPs localement dans Meta Cares avant transmission vers la passerelle officielle BelRAI.'}
             </p>
             <p className="text-xs text-[var(--text-muted)] mt-1">{snapshot.syncLabel}</p>
           </div>
@@ -583,7 +583,7 @@ export function BelRAIScreenerPage() {
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-sm font-semibold">
-                  {offlineSync.snapshot.online ? 'File offline BelRAI disponible' : 'Mode hors ligne actif'}
+                  {offlineSync.snapshot.online ? 'File offline BelRAI Prep disponible' : 'Mode hors ligne actif'}
                 </p>
                 <Badge variant={belraiQueueCount > 0 ? 'amber' : 'green'}>
                   {belraiQueueCount} en attente
@@ -592,9 +592,9 @@ export function BelRAIScreenerPage() {
               <p className="text-xs text-[var(--text-muted)] mt-1">
                 {offlineSync.snapshot.online
                   ? belraiQueueCount > 0
-                    ? 'Les brouillons BelRAI marques prets peuvent maintenant etre re-injectes dans la file de synchronisation.'
-                    : 'Aucun brouillon BelRAI hors ligne ne reste a synchroniser.'
-                  : 'Les modifications restent locales. Marquez le screener pret puis reprenez la synchronisation une fois la connexion retablie.'}
+                    ? 'Les brouillons BelRAI Prep marques prets peuvent maintenant etre re-injectes dans la file de synchronisation.'
+                    : 'Aucun brouillon BelRAI Prep hors ligne ne reste a synchroniser.'
+                  : 'Les modifications restent locales. Marquez la preparation comme prete puis reprenez la synchronisation une fois la connexion retablie.'}
               </p>
             </div>
           </div>
@@ -626,7 +626,7 @@ export function BelRAIScreenerPage() {
           disabled={(!snapshot.readyToSync && !shouldShowSyncNowAction) || isSaving}
         >
           <CheckCircle2 className="h-4 w-4" />
-          {shouldShowSyncNowAction ? 'Synchroniser maintenant' : 'Marquer prêt'}
+          {shouldShowSyncNowAction ? 'Synchroniser maintenant' : 'Marquer pret pour envoi'}
         </Button>
       </div>
     </AnimatedPage>

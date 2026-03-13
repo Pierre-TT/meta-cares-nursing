@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Card, Badge, Avatar, Button, AnimatedPage, GradientHeader } from '@/design-system';
+import { useBelraiOperations } from '@/hooks/useBelraiOperations';
 import { useHadEpisodeDetail, useHadEpisodes } from '@/hooks/useHadData';
 import {
   buildHadSuggestionTrackingCode,
@@ -324,6 +325,7 @@ function compareHadEpisodes(left: HadEpisodeListItem, right: HadEpisodeListItem)
 export function PatientCaseloadPage() {
   const navigate = useNavigate();
   const { data: hadEpisodes = [], isLoading: isHadLoading } = useHadEpisodes({ onlyOpen: true });
+  const belraiOperations = useBelraiOperations(8);
   const totalPatients = nurseLoads.reduce((s, n) => s + n.patients, 0);
   const avgLoad = Math.round(nurseLoads.reduce((s, n) => s + n.weightedLoad, 0) / nurseLoads.length);
   const overloadedNurses = nurseLoads.filter((nurse) => nurse.balance === 'overloaded');
@@ -575,8 +577,8 @@ export function PatientCaseloadPage() {
     <AnimatedPage className="px-4 py-6 lg:px-8 max-w-5xl mx-auto space-y-4">
       <GradientHeader
         icon={<Heart className="h-5 w-5" />}
-        title="Charge Patients"
-        subtitle="Distribution, équilibrage et pression HAD"
+        title="BelRAI & charge patients"
+        subtitle="Distribution, preparation BelRAI et pression HAD"
         badge={
           <Button
             variant="outline"
@@ -621,6 +623,73 @@ export function PatientCaseloadPage() {
           </span>
         </div>
       )}
+
+      <Card className="space-y-4 border-l-4 border-l-mc-blue-500">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold">Vue coordination BelRAI</p>
+            <p className="text-xs text-[var(--text-muted)]">
+              Les resultats partages, les retours officiels et les echeances reviennent ici avant repartition operationnelle.
+            </p>
+          </div>
+          <Badge variant={belraiOperations.summary.attentionCount > 0 ? 'amber' : 'green'}>
+            {belraiOperations.summary.attentionCount} a arbitrer
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          <div className="rounded-2xl bg-[var(--bg-secondary)] px-3 py-3">
+            <p className="text-lg font-bold text-mc-blue-500">{belraiOperations.summary.totalCount}</p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">dossiers</p>
+          </div>
+          <div className="rounded-2xl bg-[var(--bg-secondary)] px-3 py-3">
+            <p className="text-lg font-bold text-mc-green-500">{belraiOperations.summary.syncedCount}</p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">partages</p>
+          </div>
+          <div className="rounded-2xl bg-[var(--bg-secondary)] px-3 py-3">
+            <p className="text-lg font-bold text-mc-amber-500">{belraiOperations.summary.queuedCount}</p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">en transit</p>
+          </div>
+          <div className="rounded-2xl bg-[var(--bg-secondary)] px-3 py-3">
+            <p className="text-lg font-bold text-mc-red-500">{belraiOperations.summary.overdueCount}</p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">en retard</p>
+          </div>
+        </div>
+
+        {belraiOperations.isLoading ? (
+          <div className="space-y-2">
+            {[0, 1, 2].map((placeholder) => (
+              <div key={placeholder} className="h-16 rounded-2xl bg-[var(--bg-tertiary)] animate-pulse" />
+            ))}
+          </div>
+        ) : belraiOperations.entries.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[var(--border-default)] px-4 py-5 text-sm text-[var(--text-muted)]">
+            Aucun dossier BelRAI n'est encore remonte dans la vue de coordination.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {belraiOperations.entries.slice(0, 4).map((entry) => (
+              <div key={entry.id} className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-secondary)] px-3 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold">{entry.patientName}</p>
+                      <Badge variant={entry.statusVariant}>{entry.statusLabel}</Badge>
+                      <Badge variant={entry.syncVariant}>{entry.syncLabel}</Badge>
+                    </div>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">{entry.katzLabel} · {entry.city}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{entry.instrumentLabel}</p>
+                  </div>
+                  <div className="text-right text-[11px] text-[var(--text-muted)]">
+                    <p>{entry.updatedLabel}</p>
+                    <p>{entry.dueLabel}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card className="space-y-4 border-l-4 border-l-mc-red-500">
         <div className="flex items-start justify-between gap-3">

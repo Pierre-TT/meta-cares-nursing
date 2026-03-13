@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
+  ArrowRight,
+  Brain,
   Heart,
   Droplets,
   Wind,
@@ -17,6 +19,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { Card, Badge, Button, Avatar, AnimatedPage, GradientHeader } from '@/design-system';
+import { useBelraiTwin } from '@/hooks/useBelraiTwin';
 import { usePatientHomeData } from '@/hooks/usePlatformData';
 
 const statusSteps = ['Préparation', 'En route', 'Arrivée prochaine', 'Sur place'];
@@ -37,7 +40,11 @@ interface MedicationReminder {
 export function PatientHome() {
   const navigate = useNavigate();
   const { data } = usePatientHomeData();
-  const { profile, nurseETA, timeline, vitals, healthTip } = data;
+  const { profile, nurseETA, timeline, vitals, healthTip, linkedPatientId } = data;
+  const belraiQuery = useBelraiTwin(linkedPatientId ?? undefined);
+  const belrai = belraiQuery.data;
+  const officialBelrai = belrai?.officialResult ?? null;
+  const hasSharedBelrai = Boolean(belrai?.sharedResultsReady && officialBelrai?.isSharedWithPatient);
 
   const activeStep = nurseETA.status === 'en_route' ? 1 : 0;
   const medicationStateKey = data.medReminders
@@ -103,6 +110,59 @@ export function PatientHome() {
             <span key={s} className={`text-[8px] ${i <= activeStep ? 'text-mc-green-500 font-medium' : 'text-[var(--text-muted)]'}`}>{s}</span>
           ))}
         </div>
+      </Card>
+
+      <Card className="border-l-4 border-l-mc-blue-500">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-xl bg-mc-blue-50 dark:bg-mc-blue-900/20 flex items-center justify-center shrink-0">
+              <Brain className="h-5 w-5 text-mc-blue-500" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-semibold">Mon BelRAI</p>
+                <Badge variant={hasSharedBelrai ? 'green' : 'amber'}>
+                  {hasSharedBelrai ? 'Partagé' : 'En préparation'}
+                </Badge>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                {hasSharedBelrai
+                  ? `${officialBelrai?.caps.length ?? 0} priorité(s) et ${officialBelrai?.scores.length ?? 0} repère(s) sont disponibles dans votre vue citoyenne.`
+                  : officialBelrai && !officialBelrai.isSharedWithPatient
+                    ? 'Des résultats officiels sont déjà reçus, mais ils ne sont pas encore partagés dans votre portail.'
+                    : linkedPatientId
+                      ? 'Votre équipe prépare encore la synthèse. Les réponses détaillées restent masquées tant que le partage n’est pas finalisé.'
+                      : 'Votre dossier BelRAI apparaîtra ici dès qu’il sera relié à votre portail patient.'}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => navigate('/patient/belrai')}
+            iconRight={<ArrowRight className="h-3.5 w-3.5" />}
+          >
+            Ouvrir
+          </Button>
+        </div>
+
+        {hasSharedBelrai && officialBelrai && (
+          <div className="grid grid-cols-3 gap-2 mt-4">
+            <div className="rounded-xl bg-[var(--bg-secondary)] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Katz</p>
+              <p className="text-sm font-semibold mt-1">{officialBelrai.katz.category}</p>
+            </div>
+            <div className="rounded-xl bg-[var(--bg-secondary)] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">CAPs</p>
+              <p className="text-sm font-semibold mt-1">{officialBelrai.caps.length}</p>
+            </div>
+            <div className="rounded-xl bg-[var(--bg-secondary)] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Partage</p>
+              <p className="text-sm font-semibold mt-1">{officialBelrai.sharedLabel}</p>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* ── Medication Reminders ── */}

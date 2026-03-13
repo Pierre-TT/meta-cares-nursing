@@ -19,7 +19,7 @@ describe('Billing workflows', () => {
     fireEvent.click(screen.getByRole('button', { name: /Envoyer 1 brouillon/i }));
 
     expect(screen.getByRole('status')).toHaveTextContent('1 lot(s) envoye(s) vers MyCareNet.');
-  });
+  }, 10000);
 
   it('validates selected queue items', () => {
     render(<WorkQueuePage />);

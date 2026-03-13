@@ -5,6 +5,7 @@ import {
   Calendar,
   ClipboardList,
   Euro,
+  FileText,
   HeartPulse,
   LogOut,
   MessageCircle,
@@ -24,6 +25,7 @@ const sections = [
       { icon: MessageCircle, label: 'Messages', path: '/patient/messages', color: 'text-mc-blue-500', bg: 'bg-mc-blue-50 dark:bg-mc-blue-900/20' },
       { icon: Calendar, label: 'Rendez-vous', path: '/patient/appointments', color: 'text-mc-green-500', bg: 'bg-mc-green-50 dark:bg-mc-green-900/20' },
       { icon: Euro, label: 'Mes Coûts', path: '/patient/costs', color: 'text-mc-amber-500', bg: 'bg-mc-amber-50 dark:bg-amber-900/20' },
+      { icon: FileText, label: 'Documents', path: '/patient/documents', color: 'text-mc-blue-400', bg: 'bg-mc-blue-50 dark:bg-mc-blue-900/20' },
       { icon: BookOpen, label: 'Journal de soins', path: '/patient/diary', color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
     ],
   },
@@ -47,6 +49,7 @@ const sections = [
 export function PatientMorePage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const profilePath = user ? roleProfileRoutes[user.role] : '/patient/profile';
 
   return (
@@ -79,7 +82,14 @@ export function PatientMorePage() {
         </div>
       </Card>
 
-      <Button variant="outline" className="w-full text-red-500 border-red-200 hover:bg-red-50">
+      <Button
+        variant="outline"
+        className="w-full text-red-500 border-red-200 hover:bg-red-50"
+        onClick={() => {
+          logout();
+          navigate('/login');
+        }}
+      >
         <LogOut className="h-4 w-4" /> Se déconnecter
       </Button>
     </AnimatedPage>

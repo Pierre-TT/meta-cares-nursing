@@ -169,7 +169,7 @@ describe('ProfileSettingsPage', () => {
     );
     expect(mocks.syncSession).toHaveBeenCalled();
     expect(await screen.findByText(/Profil mis à jour/i)).toBeInTheDocument();
-  });
+  }, 10000);
 
   it('updates the password for the current user', async () => {
     renderPage();

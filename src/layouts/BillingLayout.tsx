@@ -186,7 +186,7 @@ export function BillingLayout() {
           <aside className="relative w-64 bg-[var(--bg-primary)] flex flex-col shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-[var(--border-default)]">
               <h1 className="text-base font-bold text-gradient">Meta Cares</h1>
-              <button onClick={() => setMobileOpen(false)} className="p-1">
+              <button onClick={() => setMobileOpen(false)} className="p-1" aria-label="Fermer le menu">
                 <X className="h-5 w-5 text-[var(--text-muted)]" />
               </button>
             </div>
@@ -199,6 +199,15 @@ export function BillingLayout() {
                 }}
               />
             </nav>
+            <div className="p-3 border-t border-[var(--border-default)]">
+              <button
+                onClick={() => { logout(); navigate('/login'); setMobileOpen(false); }}
+                className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-sm font-medium text-[var(--text-muted)] hover:text-mc-red-500 hover:bg-mc-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                Déconnexion
+              </button>
+            </div>
           </aside>
         </div>
       )}
@@ -207,7 +216,7 @@ export function BillingLayout() {
       <div className="flex-1 flex flex-col">
         <header className="lg:hidden sticky top-0 z-30 glass border-b border-[var(--border-default)]">
           <div className="flex items-center h-14 px-4">
-            <button onClick={() => setMobileOpen(true)} className="mr-3">
+            <button onClick={() => setMobileOpen(true)} className="mr-3" aria-label="Ouvrir le menu">
               <Menu className="h-5 w-5 text-[var(--text-secondary)]" />
             </button>
             <h1 className="text-sm font-bold text-gradient">Meta Cares</h1>

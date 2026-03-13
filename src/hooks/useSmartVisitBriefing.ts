@@ -173,7 +173,7 @@ export function useSmartVisitBriefing(patientRouteId?: string) {
     }
 
     if (belraiQuery.error) {
-      issues.push('BelRAI Twin');
+      issues.push('BelRAI Prep');
     }
 
     return issues;

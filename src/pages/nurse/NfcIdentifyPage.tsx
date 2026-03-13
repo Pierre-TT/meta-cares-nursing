@@ -1,21 +1,22 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Nfc,
-  CreditCard,
-  CheckCircle,
-  XCircle,
-  Hash,
-  MapPin,
-  Calendar,
-  Keyboard,
-  RotateCcw,
   ArrowRight,
+  Calendar,
+  CheckCircle,
+  CreditCard,
+  Hash,
+  Keyboard,
+  MapPin,
+  Nfc,
+  RotateCcw,
+  XCircle,
 } from 'lucide-react';
-import { Button, Card, Input, Badge, Avatar, AnimatedPage } from '@/design-system';
-import { mockNfcRead, validateNationalNumber } from '@/lib/eid';
+import { AnimatedPage, Avatar, Badge, Button, Card, Input } from '@/design-system';
 import type { BelgianEid } from '@/lib/eid';
+import { mockNfcRead, validateNationalNumber } from '@/lib/eid';
+import { savePatientIdentityVerification } from '@/lib/patientIdentityVerification';
 import { useNursePatients, type NursePatient } from '@/hooks/useNursePatients';
 
 type ScanState = 'idle' | 'scanning' | 'success' | 'error' | 'manual';
@@ -32,7 +33,7 @@ function patientToBelgianEid(patient: NursePatient, chipAuthSuccess: boolean): B
     dateOfBirth: patient.dateOfBirth,
     gender: patient.gender,
     nationality: 'Belge',
-    placeOfBirth: 'Non renseigné',
+    placeOfBirth: 'Non renseigne',
     address: {
       street: patient.address.street,
       houseNumber: patient.address.houseNumber,
@@ -51,6 +52,8 @@ export function NfcIdentifyPage() {
   const [eid, setEid] = useState<BelgianEid | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [manualNISS, setManualNISS] = useState('');
+  const [manualFallbackMode, setManualFallbackMode] = useState<'barcode' | 'manual_niss'>('manual_niss');
+  const [manualReason, setManualReason] = useState('');
   const navigate = useNavigate();
   const { data: patients = [], isLoading: isPatientsLoading, error: patientsError } = useNursePatients();
 
@@ -70,58 +73,97 @@ export function NfcIdentifyPage() {
   const startScan = useCallback(async () => {
     setState('scanning');
     setErrorMessage('');
+
     try {
       const data = await mockNfcRead();
       const matched = findPatientByNiss(data.nationalNumber);
-      setEid(matched ? patientToBelgianEid(matched, true) : data);
-      setErrorMessage(matched ? '' : 'Aucun patient actif ne correspond à ce NISS. Vérifiez le dossier ou créez un nouveau patient.');
+      const resolvedEid = matched ? patientToBelgianEid(matched, true) : data;
+
+      setEid(resolvedEid);
+      if (matched) {
+        savePatientIdentityVerification({
+          patientRouteId: matched.routeId,
+          patientDatabaseId: matched.databaseId,
+          patientLabel: `${matched.firstName} ${matched.lastName}`,
+          nationalNumber: matched.niss,
+          verifiedAt: new Date().toISOString(),
+          method: 'eid_chip',
+          assurance: 'high',
+          supportNumber: resolvedEid.cardNumber,
+        });
+      }
+
+      setErrorMessage(matched ? '' : 'Aucun patient actif ne correspond a ce NISS. Verifiez le dossier ou creez un nouveau patient.');
       setState('success');
     } catch {
-      setErrorMessage('Impossible de lire la carte. Réessayez ou utilisez la saisie manuelle.');
+      setErrorMessage('Impossible de lire la carte. Reessayez ou utilisez la saisie manuelle.');
       setState('error');
     }
   }, [findPatientByNiss]);
 
-  const handleManualSubmit = () => {
+  function handleManualSubmit() {
     const clean = manualNISS.replace(/\D/g, '');
     if (!validateNationalNumber(clean)) {
-      setErrorMessage('Numéro national invalide. Vérifiez le format.');
+      setErrorMessage('Numero national invalide. Verifiez le format.');
       return;
     }
 
     if (patientsError) {
-      setErrorMessage('La base patients est indisponible pour le moment. Réessayez dans quelques instants.');
+      setErrorMessage('La base patients est indisponible pour le moment. Reessayez dans quelques instants.');
       return;
     }
 
     if (isPatientsLoading) {
-      setErrorMessage('Chargement des patients en cours… Réessayez dans un instant.');
+      setErrorMessage('Chargement des patients en cours. Reessayez dans un instant.');
+      return;
+    }
+
+    if (!manualReason.trim()) {
+      setErrorMessage('Indiquez le motif du fallback manuel avant de continuer.');
       return;
     }
 
     const matched = findPatientByNiss(clean);
-
     if (!matched) {
-      setErrorMessage('Aucun patient actif ne correspond à ce NISS.');
+      setErrorMessage('Aucun patient actif ne correspond a ce NISS.');
       return;
     }
 
     setErrorMessage('');
     setEid(patientToBelgianEid(matched, false));
+    savePatientIdentityVerification({
+      patientRouteId: matched.routeId,
+      patientDatabaseId: matched.databaseId,
+      patientLabel: `${matched.firstName} ${matched.lastName}`,
+      nationalNumber: matched.niss,
+      verifiedAt: new Date().toISOString(),
+      method: manualFallbackMode,
+      assurance: 'fallback',
+      supportNumber: manualFallbackMode === 'barcode' ? 'BARCODE' : 'MANUAL',
+      reason: manualReason.trim(),
+    });
     setState('success');
-  };
+  }
+
+  function resetToIdle() {
+    setState('idle');
+    setEid(null);
+    setErrorMessage('');
+    setManualReason('');
+    setManualNISS('');
+    setManualFallbackMode('manual_niss');
+  }
 
   return (
     <AnimatedPage className="px-4 py-6 max-w-lg mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-bold">Identification Patient</h1>
         <p className="text-sm text-[var(--text-muted)] mt-1">
-          Approchez la carte eID du patient près de votre téléphone
+          Approchez la carte eID du patient pres de votre telephone.
         </p>
       </div>
 
       <AnimatePresence mode="wait">
-        {/* ── Idle / Scanning ── */}
         {(state === 'idle' || state === 'scanning') && (
           <motion.div
             key="scan"
@@ -130,31 +172,23 @@ export function NfcIdentifyPage() {
             exit={{ opacity: 0, scale: 0.95 }}
             className="flex flex-col items-center"
           >
-            {/* NFC animation */}
             <div className="relative h-48 w-48 flex items-center justify-center mb-8">
               {state === 'scanning' && (
                 <>
-                  {[0, 1, 2].map((i) => (
+                  {[0, 1, 2].map((index) => (
                     <motion.div
-                      key={i}
+                      key={index}
                       className="absolute inset-0 rounded-full border-2 border-mc-blue-300"
                       initial={{ scale: 0.5, opacity: 0.8 }}
                       animate={{ scale: 1.3, opacity: 0 }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: Infinity,
-                        delay: i * 0.5,
-                        ease: 'easeOut',
-                      }}
+                      transition={{ duration: 1.5, repeat: Infinity, delay: index * 0.5, ease: 'easeOut' }}
                     />
                   ))}
                 </>
               )}
               <div
                 className={`h-28 w-28 rounded-3xl flex items-center justify-center shadow-lg transition-colors ${
-                  state === 'scanning'
-                    ? 'bg-[image:var(--gradient-brand)]'
-                    : 'bg-[var(--bg-tertiary)]'
+                  state === 'scanning' ? 'bg-[image:var(--gradient-brand)]' : 'bg-[var(--bg-tertiary)]'
                 }`}
               >
                 <Nfc className={`h-12 w-12 ${state === 'scanning' ? 'text-white' : 'text-[var(--text-muted)]'}`} />
@@ -163,27 +197,17 @@ export function NfcIdentifyPage() {
 
             <p className="text-sm text-[var(--text-secondary)] text-center mb-6">
               {state === 'scanning'
-                ? 'Lecture en cours… Ne retirez pas la carte.'
-                : 'Placez la carte d\'identité contre le dos du téléphone.'}
+                ? 'Lecture en cours. Ne retirez pas la carte.'
+                : "Placez la carte d'identite contre le dos du telephone."}
             </p>
 
             <div className="w-full space-y-3">
-              <Button
-                variant="gradient"
-                size="lg"
-                className="w-full"
-                onClick={startScan}
-                loading={state === 'scanning'}
-              >
+              <Button variant="gradient" size="lg" className="w-full" onClick={startScan} loading={state === 'scanning'}>
                 <CreditCard className="h-5 w-5" />
-                {state === 'scanning' ? 'Lecture NFC…' : 'Scanner la carte eID'}
+                {state === 'scanning' ? 'Lecture NFC...' : 'Scanner la carte eID'}
               </Button>
 
-              <Button
-                variant="ghost"
-                className="w-full"
-                onClick={() => { setState('manual'); setErrorMessage(''); }}
-              >
+              <Button variant="ghost" className="w-full" onClick={() => { setState('manual'); setErrorMessage(''); }}>
                 <Keyboard className="h-4 w-4" />
                 Saisie manuelle du NISS
               </Button>
@@ -191,7 +215,6 @@ export function NfcIdentifyPage() {
           </motion.div>
         )}
 
-        {/* ── Error ── */}
         {state === 'error' && (
           <motion.div
             key="error"
@@ -203,12 +226,12 @@ export function NfcIdentifyPage() {
             <div className="h-16 w-16 rounded-full bg-mc-red-50 dark:bg-red-900/30 flex items-center justify-center mb-4">
               <XCircle className="h-8 w-8 text-mc-red-500" />
             </div>
-            <h3 className="text-lg font-semibold mb-1">Échec de lecture</h3>
+            <h3 className="text-lg font-semibold mb-1">Echec de lecture</h3>
             <p className="text-sm text-[var(--text-muted)] mb-6 max-w-xs">{errorMessage}</p>
             <div className="flex gap-3 w-full">
               <Button variant="outline" onClick={startScan} className="flex-1">
                 <RotateCcw className="h-4 w-4" />
-                Réessayer
+                Reessayer
               </Button>
               <Button variant="gradient" onClick={() => setState('manual')} className="flex-1">
                 <Keyboard className="h-4 w-4" />
@@ -218,7 +241,6 @@ export function NfcIdentifyPage() {
           </motion.div>
         )}
 
-        {/* ── Manual input ── */}
         {state === 'manual' && (
           <motion.div
             key="manual"
@@ -230,19 +252,43 @@ export function NfcIdentifyPage() {
             <Card>
               <h3 className="text-sm font-semibold mb-3">Saisie manuelle</h3>
               <Input
-                label="Numéro national (NISS)"
+                label="Numero national (NISS)"
                 placeholder="85.07.15-123.45"
                 icon={<Hash className="h-4 w-4" />}
                 value={manualNISS}
-                onChange={(e) => { setManualNISS(e.target.value); setErrorMessage(''); }}
+                onChange={(event) => { setManualNISS(event.target.value); setErrorMessage(''); }}
                 error={errorMessage || undefined}
                 hint="Format: XX.XX.XX-XXX.XX (11 chiffres)"
               />
+
+              <label className="block mt-3">
+                <span className="text-xs font-medium text-[var(--text-secondary)]">Mode fallback</span>
+                <select
+                  value={manualFallbackMode}
+                  onChange={(event) => setManualFallbackMode(event.target.value as 'barcode' | 'manual_niss')}
+                  className="mt-1 w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-tertiary)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                >
+                  <option value="manual_niss">Saisie manuelle NISS</option>
+                  <option value="barcode">Lecture code-barres / sticker</option>
+                </select>
+              </label>
+
+              <label className="block mt-3">
+                <span className="text-xs font-medium text-[var(--text-secondary)]">Motif du fallback</span>
+                <textarea
+                  value={manualReason}
+                  onChange={(event) => { setManualReason(event.target.value); setErrorMessage(''); }}
+                  className="mt-1 min-h-[72px] w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-tertiary)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                  placeholder="Carte illisible, sticker mutuelle, patient sans support electronique..."
+                />
+              </label>
+
               {patientsError && (
                 <p className="text-xs text-mc-red-500 mt-2">
-                  La liste des patients n’est pas disponible pour la recherche immédiate.
+                  La liste des patients n'est pas disponible pour la recherche immediate.
                 </p>
               )}
+
               <div className="flex gap-3 mt-4">
                 <Button variant="outline" onClick={() => setState('idle')} className="flex-1">
                   Annuler
@@ -255,7 +301,6 @@ export function NfcIdentifyPage() {
           </motion.div>
         )}
 
-        {/* ── Success ── */}
         {state === 'success' && eid && (
           <motion.div
             key="success"
@@ -264,15 +309,13 @@ export function NfcIdentifyPage() {
             exit={{ opacity: 0 }}
             className="space-y-4"
           >
-            {/* Auth status */}
             <div className="flex items-center justify-center gap-2 py-2">
               <CheckCircle className="h-5 w-5 text-mc-green-500" />
               <span className="text-sm font-medium text-mc-green-600 dark:text-mc-green-400">
-                {eid.chipAuthSuccess ? 'Authentification NFC réussie' : 'Identification manuelle'}
+                {eid.chipAuthSuccess ? 'Authentification NFC reussie' : 'Identification manuelle'}
               </span>
             </div>
 
-            {/* Patient card */}
             <Card gradient className="space-y-4">
               <div className="flex items-center gap-4">
                 <Avatar name={`${eid.firstName} ${eid.lastName}`} size="lg" />
@@ -281,7 +324,7 @@ export function NfcIdentifyPage() {
                     {eid.firstName} {eid.lastName}
                   </h3>
                   <Badge variant={eid.chipAuthSuccess ? 'green' : 'amber'} dot>
-                    {eid.chipAuthSuccess ? 'eID vérifié' : 'Non vérifié'}
+                    {eid.chipAuthSuccess ? 'eID verifie' : 'Fallback trace'}
                   </Badge>
                 </div>
               </div>
@@ -297,7 +340,7 @@ export function NfcIdentifyPage() {
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-[var(--text-muted)]" />
                   <div>
-                    <p className="text-[10px] text-[var(--text-muted)]">Né(e) le</p>
+                    <p className="text-[10px] text-[var(--text-muted)]">Ne(e) le</p>
                     <p className="font-medium">{eid.dateOfBirth}</p>
                   </div>
                 </div>
@@ -311,6 +354,20 @@ export function NfcIdentifyPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="rounded-xl bg-[var(--bg-secondary)] p-3 text-sm">
+                <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Trace d'identification</p>
+                <p className="font-medium">
+                  {eid.chipAuthSuccess
+                    ? 'Lecture eID/ISI+ puce'
+                    : manualFallbackMode === 'barcode'
+                      ? 'Fallback code-barres / sticker'
+                      : 'Fallback manuel NISS'}
+                </p>
+                {!eid.chipAuthSuccess && manualReason.trim() && (
+                  <p className="text-xs text-[var(--text-muted)] mt-1">{manualReason.trim()}</p>
+                )}
+              </div>
             </Card>
 
             {!matchedPatient && errorMessage && (
@@ -319,9 +376,8 @@ export function NfcIdentifyPage() {
               </Card>
             )}
 
-            {/* Actions */}
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => { setState('idle'); setEid(null); setErrorMessage(''); }} className="flex-1">
+              <Button variant="outline" onClick={resetToIdle} className="flex-1">
                 <RotateCcw className="h-4 w-4" />
                 Autre patient
               </Button>
