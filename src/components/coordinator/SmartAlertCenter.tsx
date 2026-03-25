@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, UserX, FileWarning, Shield, X, Check, Bell } from 'lucide-react';
 import { Card, Badge } from '@/design-system';
+import { featureFlags } from '@/lib/featureFlags';
+import { MockFeatureNotice } from '@/components/MockFeatureNotice';
 
 interface SmartAlert {
   id: string;
@@ -32,6 +34,10 @@ const categoryIcons = { absence: UserX, delay: Clock, compliance: FileWarning, s
 export function SmartAlertCenter() {
   const [alerts, setAlerts] = useState(mockAlerts);
   const [filter, setFilter] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
+
+  if (!featureFlags.enableHealthcareMocks) {
+    return <MockFeatureNotice feature="Centre d'alertes intelligent" />;
+  }
 
   const dismiss = (id: string) => setAlerts(prev => prev.filter(a => a.id !== id));
   const filtered = filter === 'all' ? alerts : alerts.filter(a => a.severity === filter);

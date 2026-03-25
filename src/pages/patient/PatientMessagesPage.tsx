@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { MessageCircle, Send, Mic, Image, ChevronLeft, Check, CheckCheck } from 'lucide-react';
 import { Card, Badge, Avatar, AnimatedPage, GradientHeader } from '@/design-system';
+import { featureFlags } from '@/lib/featureFlags';
+import { MockFeatureNotice } from '@/components/MockFeatureNotice';
 
 interface Conversation {
   id: string;
@@ -44,6 +46,10 @@ const StatusIcon = ({ status }: { status: Message['status'] }) => {
 export function PatientMessagesPage() {
   const [activeConvo, setActiveConvo] = useState<string | null>(null);
   const [input, setInput] = useState('');
+
+  if (!featureFlags.enableHealthcareMocks) {
+    return <MockFeatureNotice feature="Messagerie patient" />;
+  }
 
   const active = conversations.find(c => c.id === activeConvo);
 

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Route, CheckCircle, ChevronDown, ChevronUp, ArrowRightLeft } from 'lucide-react';
 import { Card, Badge, Button } from '@/design-system';
+import { featureFlags } from '@/lib/featureFlags';
+import { MockFeatureNotice } from '@/components/MockFeatureNotice';
 
 interface Suggestion {
   id: string;
@@ -25,6 +27,10 @@ const typeColors = { route: 'text-mc-blue-500', swap: 'text-purple-500', rebalan
 export function AIScheduleOptimizer() {
   const [expanded, setExpanded] = useState(true);
   const [applied, setApplied] = useState<Set<string>>(new Set());
+
+  if (!featureFlags.enableHealthcareMocks) {
+    return <MockFeatureNotice feature="Optimisation IA des tournees" />;
+  }
 
   const totalKm = mockSuggestions.reduce((s, sg) => s + (sg.savingKm ?? 0), 0);
   const totalMin = mockSuggestions.reduce((s, sg) => s + (sg.savingMin ?? 0), 0);

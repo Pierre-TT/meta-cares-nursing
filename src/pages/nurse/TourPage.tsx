@@ -15,6 +15,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { Button, Card, Badge, Avatar, AnimatedPage, AnimatedList, AnimatedItem, GradientHeader } from '@/design-system';
+import { featureFlags } from '@/lib/featureFlags';
+import { MockFeatureNotice } from '@/components/MockFeatureNotice';
 import { useNursePatients } from '@/hooks/useNursePatients';
 
 interface TourVisit {
@@ -70,6 +72,10 @@ export function TourPage() {
 
   const completedCount = mockTour.filter((v) => v.status === 'completed').length;
   const totalMinutes = mockTour.reduce((s, v) => s + v.duration, 0);
+
+  if (!featureFlags.enableHealthcareMocks) {
+    return <MockFeatureNotice feature="Gestion des tournees terrain" />;
+  }
 
   return (
     <AnimatedPage className="px-4 py-6 max-w-2xl mx-auto space-y-4">

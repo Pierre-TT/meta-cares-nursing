@@ -14,6 +14,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import { AnimatedPage, Avatar, Badge, Button, Card, Input } from '@/design-system';
+import { featureFlags } from '@/lib/featureFlags';
+import { MockFeatureNotice } from '@/components/MockFeatureNotice';
 import type { BelgianEid } from '@/lib/eid';
 import { mockNfcRead, validateNationalNumber } from '@/lib/eid';
 import { savePatientIdentityVerification } from '@/lib/patientIdentityVerification';
@@ -100,6 +102,10 @@ export function NfcIdentifyPage() {
       setState('error');
     }
   }, [findPatientByNiss]);
+
+  if (!featureFlags.enableHealthcareMocks) {
+    return <MockFeatureNotice feature="Lecture NFC carte eID" />;
+  }
 
   function handleManualSubmit() {
     const clean = manualNISS.replace(/\D/g, '');

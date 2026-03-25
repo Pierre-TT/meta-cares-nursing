@@ -8,6 +8,8 @@ import {
   Clock,
 } from 'lucide-react';
 import { Button, Card, CardHeader, CardTitle, Badge, ContentTabs, AnimatedPage, GradientHeader } from '@/design-system';
+import { featureFlags } from '@/lib/featureFlags';
+import { MockFeatureNotice } from '@/components/MockFeatureNotice';
 
 const mockInvoices = [
   { id: 'inv1', patient: 'Dubois Marie', date: '05/03/2026', acts: 3, totalW: 11.8, amount: 85.55, status: 'ready' as const },
@@ -27,6 +29,10 @@ const statusConfig = {
 export function BillingPage() {
   const [filter, setFilter] = useState<string>('all');
   const navigate = useNavigate();
+
+  if (!featureFlags.enableHealthcareMocks) {
+    return <MockFeatureNotice feature="Facturation eHealth / MyCareNet" />;
+  }
 
   const filtered = filter === 'all' ? mockInvoices : mockInvoices.filter(inv => inv.status === filter);
 

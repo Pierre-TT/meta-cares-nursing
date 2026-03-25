@@ -11,6 +11,8 @@ import {
   X,
 } from 'lucide-react';
 import { Button, Card, CardHeader, CardTitle, Input, ContentTabs, AnimatedPage } from '@/design-system';
+import { featureFlags } from '@/lib/featureFlags';
+import { MockFeatureNotice } from '@/components/MockFeatureNotice';
 import { useNavigate } from 'react-router-dom';
 
 interface Message {
@@ -43,6 +45,10 @@ export function EHealthBoxPage() {
   const [search, setSearch] = useState('');
   const [composing, setComposing] = useState(false);
   const [compose, setCompose] = useState({ to: '', subject: '', body: '' });
+
+  if (!featureFlags.enableHealthcareMocks) {
+    return <MockFeatureNotice feature="Boite eHealthBox" />;
+  }
 
   const filteredInbox = search
     ? mockInbox.filter(m => m.from.toLowerCase().includes(search.toLowerCase()) || m.subject.toLowerCase().includes(search.toLowerCase()))
